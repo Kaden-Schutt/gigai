@@ -1,17 +1,19 @@
 {
-  "name": "gigai",
-  "version": "0.1.0",
+  "name": "@schuttdev/gigai",
+  "version": "0.1.0-beta.2",
   "type": "module",
   "bin": {
-    "gigai": "./dist/index.mjs"
+    "gigai": "dist/index.js"
   },
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
+      "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

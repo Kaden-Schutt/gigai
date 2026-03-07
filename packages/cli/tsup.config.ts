@@ -6,7 +6,7 @@ export default defineConfig({
   dts: true,
   clean: true,
   banner: { js: "#!/usr/bin/env node" },
-  outExtension: () => ({ js: ".mjs" }),
+  outExtension: () => ({ js: ".js" }),
   noExternal: ["@gigai/shared"],
   external: ["@gigai/server"],
 });
