@@ -200,6 +200,31 @@ function runCitty() {
           await uninstallDaemon();
         },
       }),
+      stop: defineCommand({
+        meta: { name: "stop", description: "Stop the running gigai server" },
+        async run() {
+          const { execFileSync } = await import("node:child_process");
+          let pids: number[] = [];
+          try {
+            const out = execFileSync("pgrep", ["-f", "gigai server start"], { encoding: "utf8" });
+            pids = out.trim().split("\n").map(Number).filter(pid => pid && pid !== process.pid);
+          } catch {
+            // pgrep returns non-zero if no matches
+          }
+          if (pids.length === 0) {
+            console.log("No running gigai server found.");
+            return;
+          }
+          for (const pid of pids) {
+            try {
+              process.kill(pid, "SIGTERM");
+              console.log(`Stopped gigai server (PID ${pid})`);
+            } catch (e) {
+              console.error(`Failed to stop PID ${pid}: ${(e as Error).message}`);
+            }
+          }
+        },
+      }),
       status: defineCommand({
         meta: { name: "status", description: "Show server status" },
         async run() {
