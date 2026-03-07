@@ -5,8 +5,6 @@ import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { generateEncryptionKey } from "@gigai/shared";
 import type { GigaiConfig, ToolConfig } from "@gigai/shared";
-import { generatePairingCode } from "../auth/pairing.js";
-import { AuthStore } from "../auth/store.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -255,10 +253,28 @@ export async function runInit(): Promise<void> {
     console.log(`  Server starting in background (PID ${child.pid})`);
   }
 
-  // 8. Generate pairing code
-  const store = new AuthStore();
-  const code = generatePairingCode(store, config.auth.pairingTtlSeconds);
-  store.destroy();
+  // 8. Generate pairing code from the running server
+  let code: string | undefined;
+  const maxRetries = 5;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch(`http://localhost:${port}/auth/pair/generate`);
+      if (res.ok) {
+        const data = await res.json() as { code: string; expiresIn: number };
+        code = data.code;
+        break;
+      }
+    } catch {
+      // Server may still be starting
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+
+  if (!code) {
+    console.log("\n  Server is starting but not ready yet.");
+    console.log("  Run 'gigai server pair' once it's up to get a pairing code.\n");
+    return;
+  }
 
   console.log(`\n  Paste this into Claude to pair:\n`);
   console.log(`  ──────────────────────────────────────────────`);

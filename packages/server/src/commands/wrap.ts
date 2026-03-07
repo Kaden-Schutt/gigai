@@ -142,16 +142,23 @@ export async function unwrapTool(name: string): Promise<void> {
 
 export async function generateServerPairingCode(configPath?: string): Promise<void> {
   const { config } = await loadConfigFile(configPath);
+  const port = config.server.port;
 
-  // Import pairing at runtime to avoid circular deps
-  const { AuthStore } = await import("../auth/store.js");
-  const { generatePairingCode } = await import("../auth/pairing.js");
-
-  const store = new AuthStore();
-  const code = generatePairingCode(store, config.auth.pairingTtlSeconds);
-  console.log(`\nPairing code: ${code}`);
-  console.log(`Expires in ${config.auth.pairingTtlSeconds / 60} minutes.`);
-  console.log(`\nNote: The server must be running for the client to use this code.`);
-  console.log(`For a live pairing code, use the server's /auth/pair/generate endpoint.`);
-  store.destroy();
+  try {
+    const res = await fetch(`http://localhost:${port}/auth/pair/generate`);
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Server returned ${res.status}: ${body}`);
+    }
+    const data = await res.json() as { code: string; expiresIn: number };
+    console.log(`\nPairing code: ${data.code}`);
+    console.log(`Expires in ${data.expiresIn / 60} minutes.`);
+  } catch (e) {
+    if ((e as Error).message.includes("fetch failed") || (e as Error).message.includes("ECONNREFUSED")) {
+      console.error("Server is not running. Start it with: gigai server start");
+    } else {
+      console.error(`Error: ${(e as Error).message}`);
+    }
+    process.exitCode = 1;
+  }
 }
