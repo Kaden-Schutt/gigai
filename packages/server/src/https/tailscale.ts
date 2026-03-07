@@ -41,7 +41,7 @@ export async function enableFunnel(port: number): Promise<string> {
     throw new Error("Tailscale is not running or not connected");
   }
 
-  // Enable funnel for the port
+  // Enable funnel for the port (serves publicly on :443, proxies to local port)
   const { exitCode, stdout } = await runCommand("tailscale", [
     "funnel", "--bg", `${port}`,
   ]);
@@ -50,15 +50,15 @@ export async function enableFunnel(port: number): Promise<string> {
     throw new Error(`Failed to enable Tailscale Funnel: ${stdout}`);
   }
 
-  return `https://${status.hostname}:${port}`;
+  return `https://${status.hostname}`;
 }
 
 export async function disableFunnel(port: number): Promise<void> {
   await runCommand("tailscale", ["funnel", "--bg", "off", `${port}`]);
 }
 
-export async function getFunnelUrl(port: number): Promise<string | null> {
+export async function getFunnelUrl(): Promise<string | null> {
   const status = await getTailscaleStatus();
   if (!status.online || !status.hostname) return null;
-  return `https://${status.hostname}:${port}`;
+  return `https://${status.hostname}`;
 }

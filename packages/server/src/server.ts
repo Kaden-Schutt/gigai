@@ -27,8 +27,10 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
     trustProxy: !dev, // Only trust proxy headers in production (behind HTTPS reverse proxy)
   });
 
-  // HTTPS enforcement (skip in dev mode)
-  if (!dev) {
+  // HTTPS enforcement (skip in dev mode or when behind a tunnel that terminates TLS)
+  const httpsProvider = config.server.https?.provider;
+  const behindTunnel = httpsProvider === "tailscale" || httpsProvider === "cloudflare";
+  if (!dev && !behindTunnel) {
     server.addHook("onRequest", async (request: FastifyRequest, _reply: FastifyReply) => {
       if (request.protocol !== "https") {
         throw new GigaiError(ErrorCode.HTTPS_REQUIRED, "HTTPS is required");

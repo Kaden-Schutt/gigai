@@ -7,6 +7,29 @@ export interface HttpClient {
   getRaw(path: string): Promise<Response>;
 }
 
+async function getProxyDispatcher(): Promise<unknown | undefined> {
+  const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  if (!proxyUrl) return undefined;
+
+  try {
+    // Node 20+ ships undici — use its ProxyAgent
+    const undici = await import("undici");
+    return new undici.ProxyAgent(proxyUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+// Cache the dispatcher so we only create it once
+let _dispatcher: unknown | undefined | null = null;
+
+async function ensureDispatcher(): Promise<unknown | undefined> {
+  if (_dispatcher === null) {
+    _dispatcher = await getProxyDispatcher();
+  }
+  return _dispatcher;
+}
+
 export function createHttpClient(serverUrl: string, sessionToken?: string): HttpClient {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
@@ -23,10 +46,16 @@ export function createHttpClient(serverUrl: string, sessionToken?: string): Http
       headers["Content-Type"] = "application/json";
     }
 
-    const res = await fetch(`${baseUrl}${path}`, {
+    const dispatcher = await ensureDispatcher();
+    const fetchOpts: any = {
       ...init,
       headers,
-    });
+    };
+    if (dispatcher) {
+      fetchOpts.dispatcher = dispatcher;
+    }
+
+    const res = await fetch(`${baseUrl}${path}`, fetchOpts);
 
     if (!res.ok) {
       let errorBody: ErrorResponse | undefined;
@@ -59,11 +88,17 @@ export function createHttpClient(serverUrl: string, sessionToken?: string): Http
         headers["Authorization"] = `Bearer ${sessionToken}`;
       }
 
-      const res = await fetch(`${baseUrl}${path}`, {
+      const dispatcher = await ensureDispatcher();
+      const fetchOpts: any = {
         method: "POST",
         headers,
         body: formData,
-      });
+      };
+      if (dispatcher) {
+        fetchOpts.dispatcher = dispatcher;
+      }
+
+      const res = await fetch(`${baseUrl}${path}`, fetchOpts);
 
       if (!res.ok) {
         let errorBody: ErrorResponse | undefined;
@@ -82,7 +117,13 @@ export function createHttpClient(serverUrl: string, sessionToken?: string): Http
         headers["Authorization"] = `Bearer ${sessionToken}`;
       }
 
-      const res = await fetch(`${baseUrl}${path}`, { headers });
+      const dispatcher = await ensureDispatcher();
+      const fetchOpts: any = { headers };
+      if (dispatcher) {
+        fetchOpts.dispatcher = dispatcher;
+      }
+
+      const res = await fetch(`${baseUrl}${path}`, fetchOpts);
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);

@@ -18,5 +18,6 @@ export default defineConfig({
     "@inquirer/prompts",
     "nanoid",
     "zod",
+    "undici",
   ],
 });

@@ -5,7 +5,7 @@ import { connect } from "./connect.js";
 import { pair } from "./pair.js";
 import { createHttpClient } from "./http.js";
 import { fetchTools, fetchToolDetail } from "./discover.js";
-import { execTool } from "./exec.js";
+import { execTool, execMcpTool } from "./exec.js";
 import { upload, download } from "./transfer.js";
 import { formatToolList, formatToolDetail, formatStatus } from "./output.js";
 
@@ -28,7 +28,26 @@ if (mode === "client") {
     try {
       const { serverUrl, sessionToken } = await connect();
       const http = createHttpClient(serverUrl, sessionToken);
-      await execTool(http, toolName, toolArgs);
+
+      // Fetch tool detail to determine type
+      const { tool: detail } = await fetchToolDetail(http, toolName);
+
+      if (detail.type === "mcp") {
+        // MCP tools: first arg is the MCP tool name, rest is JSON args
+        // Or if tool has only one MCP tool, args are passed as JSON directly
+        const mcpToolName = toolArgs[0];
+        if (!mcpToolName) {
+          // List available MCP tools for this server
+          const toolNames = (detail.mcpTools ?? []).map(t => `  ${t.name} — ${t.description}`);
+          console.log(`MCP tools for ${toolName}:\n${toolNames.join("\n")}`);
+        } else {
+          const jsonArg = toolArgs.slice(1).join(" ");
+          const args = jsonArg ? JSON.parse(jsonArg) : {};
+          await execMcpTool(http, toolName, mcpToolName, args);
+        }
+      } else {
+        await execTool(http, toolName, toolArgs);
+      }
     } catch (e) {
       console.error(`Error: ${(e as Error).message}`);
       process.exitCode = 1;
@@ -162,6 +181,23 @@ function runCitty() {
         async run({ args }) {
           const { generateServerPairingCode } = await import("@gigai/server");
           await generateServerPairingCode(args.config as string | undefined);
+        },
+      }),
+      install: defineCommand({
+        meta: { name: "install", description: "Install as persistent background service" },
+        args: {
+          config: { type: "string", alias: "c", description: "Config file path" },
+        },
+        async run({ args }) {
+          const { installDaemon } = await import("@gigai/server");
+          await installDaemon(args.config as string | undefined);
+        },
+      }),
+      uninstall: defineCommand({
+        meta: { name: "uninstall", description: "Remove background service" },
+        async run() {
+          const { uninstallDaemon } = await import("@gigai/server");
+          await uninstallDaemon();
         },
       }),
       status: defineCommand({

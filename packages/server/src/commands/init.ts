@@ -1,10 +1,74 @@
 import { input, select, checkbox, confirm } from "@inquirer/prompts";
-import { writeFile, mkdir } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 import { generateEncryptionKey } from "@gigai/shared";
 import type { GigaiConfig, ToolConfig } from "@gigai/shared";
 import { generatePairingCode } from "../auth/pairing.js";
 import { AuthStore } from "../auth/store.js";
+
+const execFileAsync = promisify(execFile);
+
+async function getTailscaleDnsName(): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync("tailscale", ["status", "--json"]);
+    const data = JSON.parse(stdout);
+    const dnsName = data?.Self?.DNSName;
+    if (dnsName) return dnsName.replace(/\.$/, "");
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureTailscaleFunnel(port: number): Promise<string> {
+  const dnsName = await getTailscaleDnsName();
+  if (!dnsName) {
+    throw new Error("Tailscale is not running or not connected. Install/start Tailscale first.");
+  }
+
+  // Try enabling the funnel — this may prompt the user to enable it on their tailnet
+  console.log("  Enabling Tailscale Funnel...");
+  try {
+    const { stdout, stderr } = await execFileAsync("tailscale", ["funnel", "--bg", `${port}`]);
+    const output = stdout + stderr;
+
+    if (output.includes("Funnel is not enabled")) {
+      // Extract the enable URL
+      const urlMatch = output.match(/(https:\/\/login\.tailscale\.com\/\S+)/);
+      const enableUrl = urlMatch?.[1] ?? "https://login.tailscale.com/admin/machines";
+
+      console.log(`\n  Funnel is not enabled on your tailnet.`);
+      console.log(`  Enable it here: ${enableUrl}\n`);
+
+      await confirm({ message: "I've enabled Funnel in my Tailscale admin. Continue?", default: true });
+
+      // Retry
+      const retry = await execFileAsync("tailscale", ["funnel", "--bg", `${port}`]);
+      if ((retry.stdout + retry.stderr).includes("Funnel is not enabled")) {
+        throw new Error("Funnel is still not enabled. Please enable it in your Tailscale admin and try again.");
+      }
+    }
+  } catch (e) {
+    if ((e as Error).message.includes("Funnel is still not enabled")) throw e;
+    // execFileAsync may throw if the command returns non-zero but still succeeds
+    // (tailscale funnel --bg can print warnings but still work)
+  }
+
+  // Verify funnel is active
+  try {
+    const { stdout } = await execFileAsync("tailscale", ["funnel", "status"]);
+    if (stdout.includes("No serve config")) {
+      throw new Error("Funnel setup failed. Run 'tailscale funnel --bg " + port + "' manually to debug.");
+    }
+  } catch {
+    // funnel status may not be available on all versions, continue anyway
+  }
+
+  console.log(`  Tailscale Funnel active: https://${dnsName}`);
+  return `https://${dnsName}`;
+}
 
 export async function runInit(): Promise<void> {
   console.log("\n  gigai server setup\n");
@@ -15,7 +79,6 @@ export async function runInit(): Promise<void> {
     choices: [
       { name: "Tailscale Funnel (recommended)", value: "tailscale" },
       { name: "Cloudflare Tunnel", value: "cloudflare" },
-      { name: "Let's Encrypt", value: "letsencrypt" },
       { name: "Manual (provide certs)", value: "manual" },
       { name: "None (dev mode only)", value: "none" },
     ],
@@ -29,7 +92,6 @@ export async function runInit(): Promise<void> {
         provider: "tailscale" as const,
         funnelPort: 7443,
       };
-      console.log("  Will use Tailscale Funnel for HTTPS.");
       break;
 
     case "cloudflare": {
@@ -44,23 +106,6 @@ export async function runInit(): Promise<void> {
         provider: "cloudflare" as const,
         tunnelName,
         ...(domain && { domain }),
-      };
-      break;
-    }
-
-    case "letsencrypt": {
-      const domain = await input({
-        message: "Domain name:",
-        required: true,
-      });
-      const email = await input({
-        message: "Email for Let's Encrypt:",
-        required: true,
-      });
-      httpsConfig = {
-        provider: "letsencrypt" as const,
-        domain,
-        email,
       };
       break;
     }
@@ -107,14 +152,12 @@ export async function runInit(): Promise<void> {
 
   const tools: ToolConfig[] = [];
 
-  // Filesystem config
   if (selectedBuiltins.includes("filesystem")) {
     const pathsStr = await input({
       message: "Allowed filesystem paths (comma-separated):",
       default: process.env.HOME ?? "~",
     });
     const allowedPaths = pathsStr.split(",").map((p) => p.trim());
-
     tools.push({
       type: "builtin",
       name: "fs",
@@ -124,7 +167,6 @@ export async function runInit(): Promise<void> {
     });
   }
 
-  // Shell config
   if (selectedBuiltins.includes("shell")) {
     const allowlistStr = await input({
       message: "Allowed shell commands (comma-separated):",
@@ -135,7 +177,6 @@ export async function runInit(): Promise<void> {
       message: "Allow sudo?",
       default: false,
     });
-
     tools.push({
       type: "builtin",
       name: "shell",
@@ -167,49 +208,67 @@ export async function runInit(): Promise<void> {
   await writeFile(configPath, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
   console.log(`\n  Config written to: ${configPath}`);
 
-  // 6. Generate skill template
-  const skillDir = resolve("gigai-skill");
-  await mkdir(skillDir, { recursive: true });
+  // 6. Enable HTTPS and detect server URL
+  let serverUrl: string | undefined;
 
-  const skillMd = `# gigai Skill
+  if (httpsProvider === "tailscale") {
+    try {
+      serverUrl = await ensureTailscaleFunnel(port);
+    } catch (e) {
+      console.error(`  ${(e as Error).message}`);
+      console.log("  You can enable Funnel later and run 'gigai server start' manually.\n");
+    }
+  } else if (httpsProvider === "cloudflare" && httpsConfig && "domain" in httpsConfig && httpsConfig.domain) {
+    serverUrl = `https://${httpsConfig.domain}`;
+    console.log(`  Cloudflare URL: ${serverUrl}`);
+  }
 
-This skill gives you access to tools running on the user's machine via the gigai CLI.
+  if (!serverUrl) {
+    serverUrl = await input({
+      message: "Server URL (how clients will reach this server):",
+      required: true,
+    });
+  }
 
-## Setup
+  // 7. Start server in background
+  console.log("\n  Starting server...");
+  const serverArgs = ["server", "start", "--config", configPath];
+  if (!httpsConfig) serverArgs.push("--dev");
 
-The gigai CLI is pre-installed. To use it:
+  const child = spawn("gigai", serverArgs, {
+    detached: true,
+    stdio: "ignore",
+    cwd: resolve("."),
+  });
+  child.unref();
 
-1. Connect to the server: \`gigai connect\`
-2. List available tools: \`gigai list\`
-3. Get help on a tool: \`gigai help <tool-name>\`
-4. Use a tool: \`gigai <tool-name> [args...]\`
+  // Give the server a moment to start
+  await new Promise((r) => setTimeout(r, 1500));
 
-## File Transfer
+  // Verify server is running
+  try {
+    const res = await fetch(`http://localhost:${port}/health`);
+    if (res.ok) {
+      console.log(`  Server running on port ${port} (PID ${child.pid})`);
+    }
+  } catch {
+    console.log(`  Server starting in background (PID ${child.pid})`);
+  }
 
-- Upload: \`gigai upload <file>\`
-- Download: \`gigai download <id> <dest>\`
-
-## Notes
-
-- The connection is authenticated and encrypted
-- Tools are scoped to what the user has configured
-- If a command fails, check \`gigai status\` for connection info
-`;
-
-  await writeFile(join(skillDir, "SKILL.md"), skillMd);
-
-  const skillConfig = {
-    server: "<YOUR_SERVER_URL>",
-    token: "<PASTE_ENCRYPTED_TOKEN_HERE>",
-  };
-  await writeFile(join(skillDir, "config.json"), JSON.stringify(skillConfig, null, 2) + "\n");
-  console.log(`  Skill template written to: ${skillDir}/`);
-
-  // 7. Generate initial pairing code
+  // 8. Generate pairing code
   const store = new AuthStore();
   const code = generatePairingCode(store, config.auth.pairingTtlSeconds);
-  console.log(`\n  Pairing code: ${code}`);
-  console.log(`  Expires in ${config.auth.pairingTtlSeconds / 60} minutes.`);
-  console.log(`\n  Start the server with: gigai server start${httpsConfig ? "" : " --dev"}`);
   store.destroy();
+
+  console.log(`\n  Paste this into Claude to pair:\n`);
+  console.log(`  ──────────────────────────────────────────────`);
+  console.log(`  Install the gigai CLI and pair with my server:\n`);
+  console.log(`  \`\`\`bash`);
+  console.log(`  npm install -g @schuttdev/gigai`);
+  console.log(`  gigai pair ${code} ${serverUrl}`);
+  console.log(`  \`\`\`\n`);
+  console.log(`  Then show me the skill file output so I can save it.`);
+  console.log(`  ──────────────────────────────────────────────`);
+  console.log(`\n  Pairing code expires in ${config.auth.pairingTtlSeconds / 60} minutes.`);
+  console.log(`  Run 'gigai server pair' to generate a new one.\n`);
 }

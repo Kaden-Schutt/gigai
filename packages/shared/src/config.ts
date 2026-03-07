@@ -11,14 +11,6 @@ export const CloudflareHttpsConfigSchema = z.object({
   domain: z.string().optional(),
 });
 
-export const LetsEncryptHttpsConfigSchema = z.object({
-  provider: z.literal("letsencrypt"),
-  domain: z.string(),
-  email: z.string().email(),
-  certPath: z.string().optional(),
-  keyPath: z.string().optional(),
-});
-
 export const ManualHttpsConfigSchema = z.object({
   provider: z.literal("manual"),
   certPath: z.string(),
@@ -28,7 +20,6 @@ export const ManualHttpsConfigSchema = z.object({
 export const HttpsConfigSchema = z.discriminatedUnion("provider", [
   TailscaleHttpsConfigSchema,
   CloudflareHttpsConfigSchema,
-  LetsEncryptHttpsConfigSchema,
   ManualHttpsConfigSchema,
 ]);
 

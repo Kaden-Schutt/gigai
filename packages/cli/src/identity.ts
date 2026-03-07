@@ -6,9 +6,10 @@ export function getOrgUUID(): string {
     return process.env.GIGAI_ORG_UUID;
   }
 
-  // Try to extract from proxy URL JWT
-  const proxyUrl = process.env.ANTHROPIC_PROXY_URL ?? "";
-  const jwtMatch = proxyUrl.match(/\/([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/);
+  // Extract from HTTP_PROXY / HTTPS_PROXY JWT (Claude code execution environment)
+  // Format: http://jwt_<token>@proxy-host:port
+  const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || "";
+  const jwtMatch = proxyUrl.match(/jwt_([^@]+)/);
   if (jwtMatch) {
     try {
       const payload = decodeJWTPayload(jwtMatch[1]);
@@ -20,20 +21,30 @@ export function getOrgUUID(): string {
     }
   }
 
+  // Also try ANTHROPIC_PROXY_URL if set
+  const anthropicProxy = process.env.ANTHROPIC_PROXY_URL ?? "";
+  const anthropicJwtMatch = anthropicProxy.match(/([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/);
+  if (anthropicJwtMatch) {
+    try {
+      const payload = decodeJWTPayload(anthropicJwtMatch[1]);
+      if (payload.organization_uuid) {
+        return payload.organization_uuid as string;
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
   // Try API key based extraction
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
-  if (apiKey.includes("/")) {
-    const parts = apiKey.split("/");
-    const jwtPart = parts.find((p) => p.includes(".") && p.split(".").length === 3);
-    if (jwtPart) {
-      try {
-        const payload = decodeJWTPayload(jwtPart);
-        if (payload.organization_uuid) {
-          return payload.organization_uuid as string;
-        }
-      } catch {
-        // Fall through
+  if (apiKey.includes(".")) {
+    try {
+      const payload = decodeJWTPayload(apiKey);
+      if (payload.organization_uuid) {
+        return payload.organization_uuid as string;
       }
+    } catch {
+      // Fall through
     }
   }
 
