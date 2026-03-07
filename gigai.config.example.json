@@ -1,0 +1,50 @@
+{
+  "server": {
+    "port": 7443,
+    "host": "0.0.0.0",
+    "https": {
+      "provider": "tailscale",
+      "funnelPort": 7443
+    }
+  },
+  "auth": {
+    "encryptionKey": "your-64-char-hex-key-here-generate-with-openssl-rand-hex-32-cmd",
+    "pairingTtlSeconds": 300,
+    "sessionTtlSeconds": 14400
+  },
+  "tools": [
+    {
+      "type": "builtin",
+      "name": "fs",
+      "builtin": "filesystem",
+      "description": "Read, list, and search files",
+      "config": {
+        "allowedPaths": ["/home/user/projects"]
+      }
+    },
+    {
+      "type": "builtin",
+      "name": "shell",
+      "builtin": "shell",
+      "description": "Execute allowed shell commands",
+      "config": {
+        "allowlist": ["ls", "cat", "head", "tail", "grep", "find", "wc", "git", "npm", "node"],
+        "allowSudo": false
+      }
+    },
+    {
+      "type": "mcp",
+      "name": "browser",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-puppeteer"],
+      "description": "Browser automation via Puppeteer"
+    },
+    {
+      "type": "cli",
+      "name": "docker",
+      "command": "docker",
+      "description": "Docker container management",
+      "timeout": 60000
+    }
+  ]
+}
