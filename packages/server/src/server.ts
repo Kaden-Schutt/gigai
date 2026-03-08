@@ -7,19 +7,22 @@ import { authPlugin } from "./auth/plugin.js";
 import { registryPlugin } from "./registry/plugin.js";
 import { executorPlugin } from "./executor/plugin.js";
 import { mcpPlugin } from "./mcp/plugin.js";
+import { cronPlugin } from "./cron/plugin.js";
 import { healthRoutes } from "./routes/health.js";
 import { toolRoutes } from "./routes/tools.js";
 import { execRoutes } from "./routes/exec.js";
 import { transferRoutes } from "./routes/transfer.js";
 import { adminRoutes } from "./routes/admin.js";
+import { cronRoutes } from "./routes/cron.js";
 
 export interface ServerOptions {
   config: GigaiConfig;
+  configPath?: string;
   dev?: boolean;
 }
 
 export async function createServer(opts: ServerOptions): Promise<FastifyInstance> {
-  const { config, dev = false } = opts;
+  const { config, configPath, dev = false } = opts;
 
   const server = Fastify({
     logger: {
@@ -50,12 +53,20 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
   await server.register(executorPlugin);
   await server.register(mcpPlugin, { config });
 
+  // Register cron scheduler (needs configPath to find gigai.crons.json)
+  if (configPath) {
+    await server.register(cronPlugin, { configPath });
+  }
+
   // Register routes
   await server.register(healthRoutes);
   await server.register(toolRoutes);
   await server.register(execRoutes);
   await server.register(transferRoutes);
   await server.register(adminRoutes);
+  if (configPath) {
+    await server.register(cronRoutes);
+  }
 
   // Global error handler
   server.setErrorHandler((error: Error, _request: FastifyRequest, reply: FastifyReply) => {

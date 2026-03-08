@@ -155,6 +155,280 @@ const unwrapCommand = defineCommand({
   },
 });
 
+const mcpCommand = defineCommand({
+  meta: { name: "mcp", description: "Manage MCP servers" },
+  subCommands: {
+    add: defineCommand({
+      meta: {
+        name: "add",
+        description: "Add an MCP server (e.g. gigai mcp add <name> -- <command> [args...])",
+      },
+      args: {
+        name: {
+          type: "positional",
+          description: "MCP server name",
+          required: true,
+        },
+      },
+      async run({ args: cmdArgs }) {
+        const { mcpAdd } = await requireServer();
+        const name = cmdArgs.name as string;
+
+        // Find the "--" separator in the raw process.argv
+        const rawArgs = process.argv;
+        const dashDashIdx = rawArgs.indexOf("--");
+        if (dashDashIdx === -1 || dashDashIdx >= rawArgs.length - 1) {
+          console.error(
+            "Usage: gigai mcp add <name> [--env KEY=VALUE ...] -- <command> [args...]",
+          );
+          console.error(
+            "\nExamples:");
+          console.error(
+            "  gigai mcp add browser -- npx -y @anthropic-ai/mcp-server-puppeteer",
+          );
+          console.error(
+            "  gigai mcp add myserver --env API_KEY=abc123 -- uvx mcp-server",
+          );
+          process.exitCode = 1;
+          return;
+        }
+
+        // Parse --env flags from everything before "--"
+        const beforeDash = rawArgs.slice(0, dashDashIdx);
+        const env: Record<string, string> = {};
+        for (let i = 0; i < beforeDash.length; i++) {
+          if (beforeDash[i] === "--env" && i + 1 < beforeDash.length) {
+            const pair = beforeDash[i + 1];
+            const eqIdx = pair.indexOf("=");
+            if (eqIdx > 0) {
+              env[pair.slice(0, eqIdx)] = pair.slice(eqIdx + 1);
+            }
+            i++; // skip the value
+          }
+        }
+
+        // Everything after "--" is command + args
+        const afterDash = rawArgs.slice(dashDashIdx + 1);
+
+        // Also extract --env flags mixed into the command args
+        const commandParts: string[] = [];
+        for (let i = 0; i < afterDash.length; i++) {
+          if (afterDash[i] === "--env" && i + 1 < afterDash.length) {
+            const pair = afterDash[i + 1];
+            const eqIdx = pair.indexOf("=");
+            if (eqIdx > 0) {
+              env[pair.slice(0, eqIdx)] = pair.slice(eqIdx + 1);
+            }
+            i++;
+          } else {
+            commandParts.push(afterDash[i]);
+          }
+        }
+
+        if (commandParts.length === 0) {
+          console.error("Error: No command specified after '--'.");
+          process.exitCode = 1;
+          return;
+        }
+
+        const command = commandParts[0];
+        const commandArgs = commandParts.slice(1);
+
+        await mcpAdd(
+          name,
+          command,
+          commandArgs,
+          Object.keys(env).length > 0 ? env : undefined,
+        );
+      },
+    }),
+    remove: defineCommand({
+      meta: { name: "remove", description: "Remove an MCP server" },
+      args: {
+        name: {
+          type: "positional",
+          description: "MCP server name",
+          required: true,
+        },
+      },
+      async run({ args }) {
+        const { unwrapTool } = await requireServer();
+        await unwrapTool(args.name as string);
+      },
+    }),
+    list: defineCommand({
+      meta: { name: "list", description: "List configured MCP servers" },
+      async run() {
+        const { mcpList } = await requireServer();
+        await mcpList();
+      },
+    }),
+  },
+});
+
+const cronCommand = defineCommand({
+  meta: { name: "cron", description: "Manage scheduled jobs" },
+  subCommands: {
+    add: defineCommand({
+      meta: {
+        name: "add",
+        description: "Schedule a tool execution (e.g. gigai cron add \"0 9 * * *\" bash git pull)",
+      },
+      args: {
+        at: { type: "string", description: "Human-readable time (e.g. \"9:00 AM tomorrow\", \"in 30 minutes\")" },
+        description: { type: "string", alias: "d", description: "Optional label for the job" },
+      },
+      async run({ args: cmdArgs }) {
+        // Parse positional args from process.argv after "cron add"
+        const rawArgs = process.argv;
+        const addIdx = rawArgs.indexOf("add");
+        if (addIdx === -1) {
+          console.error("Usage: gigai cron add [--at <time>] <tool> [args...]");
+          console.error("       gigai cron add \"0 9 * * *\" <tool> [args...]");
+          process.exitCode = 1;
+          return;
+        }
+
+        // Collect positional args (skip known flags and their values)
+        const positionals: string[] = [];
+        const rest = rawArgs.slice(addIdx + 1);
+        for (let i = 0; i < rest.length; i++) {
+          if (rest[i] === "--at" || rest[i] === "--description" || rest[i] === "-d") {
+            i++; // skip value
+            continue;
+          }
+          if (rest[i].startsWith("--")) continue;
+          positionals.push(rest[i]);
+        }
+
+        let schedule: string;
+        let tool: string;
+        let toolArgs: string[];
+        let oneShot = false;
+
+        if (cmdArgs.at) {
+          // --at mode: parse human-readable time to one-shot cron expression
+          const { parseAtExpression } = await requireServer();
+          schedule = parseAtExpression(cmdArgs.at as string);
+          oneShot = true;
+          tool = positionals[0];
+          toolArgs = positionals.slice(1);
+        } else {
+          // Standard cron mode: first positional is the cron expression
+          schedule = positionals[0];
+          tool = positionals[1];
+          toolArgs = positionals.slice(2);
+        }
+
+        if (!schedule || !tool) {
+          console.error("Usage: gigai cron add \"0 9 * * *\" <tool> [args...]");
+          console.error("       gigai cron add --at \"9:00 AM tomorrow\" <tool> [args...]");
+          process.exitCode = 1;
+          return;
+        }
+
+        try {
+          const res = await fetch("http://localhost:7443/cron", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              schedule,
+              tool,
+              args: toolArgs,
+              description: cmdArgs.description as string | undefined,
+              oneShot,
+            }),
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            console.error(`Error: ${(err as any).error?.message ?? res.statusText}`);
+            process.exitCode = 1;
+            return;
+          }
+
+          const data = await res.json() as any;
+          const job = data.job;
+          console.log(`Created cron job ${job.id}`);
+          console.log(`  Schedule: ${job.schedule}`);
+          console.log(`  Tool:     ${job.tool} ${job.args.join(" ")}`);
+          if (job.description) console.log(`  Label:    ${job.description}`);
+          if (job.nextRun) console.log(`  Next run: ${new Date(job.nextRun).toLocaleString()}`);
+          if (oneShot) console.log(`  Type:     one-shot (will disable after execution)`);
+        } catch {
+          console.error("Server is not running. Start it with: gigai start");
+          process.exitCode = 1;
+        }
+      },
+    }),
+    list: defineCommand({
+      meta: { name: "list", description: "List all scheduled jobs" },
+      async run() {
+        try {
+          const res = await fetch("http://localhost:7443/cron");
+          if (!res.ok) {
+            const err = await res.json();
+            console.error(`Error: ${(err as any).error?.message ?? res.statusText}`);
+            process.exitCode = 1;
+            return;
+          }
+
+          const data = await res.json() as any;
+          const jobs = data.jobs as any[];
+
+          if (jobs.length === 0) {
+            console.log("No scheduled jobs.");
+            return;
+          }
+
+          console.log(`${"ID".padEnd(14)} ${"Schedule".padEnd(16)} ${"Tool".padEnd(20)} ${"Enabled".padEnd(9)} ${"Next Run"}`);
+          console.log("-".repeat(80));
+
+          for (const job of jobs) {
+            const enabled = job.enabled ? "yes" : "no";
+            const next = job.nextRun && job.enabled ? new Date(job.nextRun).toLocaleString() : "-";
+            const toolStr = `${job.tool} ${job.args.join(" ")}`.slice(0, 18);
+            console.log(
+              `${job.id.padEnd(14)} ${job.schedule.padEnd(16)} ${toolStr.padEnd(20)} ${enabled.padEnd(9)} ${next}`,
+            );
+            if (job.description) {
+              console.log(`${"".padEnd(14)} ${job.description}`);
+            }
+          }
+        } catch {
+          console.error("Server is not running. Start it with: gigai start");
+          process.exitCode = 1;
+        }
+      },
+    }),
+    remove: defineCommand({
+      meta: { name: "remove", description: "Remove a scheduled job" },
+      args: {
+        id: { type: "positional", description: "Job ID", required: true },
+      },
+      async run({ args }) {
+        try {
+          const res = await fetch(`http://localhost:7443/cron/${args.id}`, {
+            method: "DELETE",
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            console.error(`Error: ${(err as any).error?.message ?? res.statusText}`);
+            process.exitCode = 1;
+            return;
+          }
+
+          console.log(`Removed cron job ${args.id}`);
+        } catch {
+          console.error("Server is not running. Start it with: gigai start");
+          process.exitCode = 1;
+        }
+      },
+    }),
+  },
+});
+
 const versionCommand = defineCommand({
   meta: { name: "version", description: "Show version" },
   run() {
@@ -178,6 +452,8 @@ const main = defineCommand({
     uninstall: uninstallCommand,
     wrap: wrapCommand,
     unwrap: unwrapCommand,
+    mcp: mcpCommand,
+    cron: cronCommand,
     version: versionCommand,
   },
 });

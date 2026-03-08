@@ -299,6 +299,24 @@ export async function runInit(): Promise<void> {
     }
   }
 
+  // 3c. Offer iMessage on macOS
+  if (platform() === "darwin") {
+    const enableIMessage = await confirm({
+      message: "Enable iMessage? (lets Claude send and read iMessages)",
+      default: false,
+    });
+    if (enableIMessage) {
+      tools.push({
+        type: "mcp",
+        name: "imessage",
+        command: "npx",
+        args: ["-y", "@foxychat-mcp/apple-imessages"],
+        description: "Send and read iMessages",
+      });
+      console.log("  iMessage requires Full Disk Access for your terminal. Grant it in System Settings > Privacy & Security > Full Disk Access.");
+    }
+  }
+
   // 4. Determine server name
   let serverName: string | undefined;
 

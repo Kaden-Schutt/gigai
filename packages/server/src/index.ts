@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { resolve } from "node:path";
 import { createServer } from "./server.js";
 import { loadConfig } from "./config.js";
 import { enableFunnel, disableFunnel } from "./https/tailscale.js";
@@ -14,9 +15,12 @@ export {
   wrapScript,
   wrapImport,
   unwrapTool,
+  mcpAdd,
+  mcpList,
   generateServerPairingCode,
 } from "./commands/wrap.js";
 export { installDaemon, uninstallDaemon } from "./commands/daemon.js";
+export { CronScheduler, parseAtExpression, type CronJob } from "./cron/scheduler.js";
 
 export async function stopServer() {
   const { execFileSync } = await import("node:child_process");
@@ -54,8 +58,10 @@ export async function startServer() {
     strict: false,
   });
 
-  const config = await loadConfig(values.config as string | undefined);
-  const server = await createServer({ config, dev: values.dev as boolean });
+  const configFile = values.config as string | undefined;
+  const config = await loadConfig(configFile);
+  const configPath = resolve(configFile ?? "gigai.config.json");
+  const server = await createServer({ config, configPath, dev: values.dev as boolean });
 
   const port = config.server.port;
   const host = config.server.host;

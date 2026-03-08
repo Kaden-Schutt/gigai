@@ -125,6 +125,56 @@ export async function wrapImport(configFilePath: string): Promise<void> {
   console.log(`\nImported ${Object.keys(mcpServers).length} MCP servers.`);
 }
 
+export async function mcpAdd(
+  name: string,
+  command: string,
+  args: string[],
+  env?: Record<string, string>,
+): Promise<void> {
+  const { config, path } = await loadConfigFile();
+
+  const existing = config.tools.find((t) => t.name === name);
+  if (existing) {
+    console.warn(`Warning: a tool named "${name}" already exists — overwriting.`);
+    config.tools = config.tools.filter((t) => t.name !== name);
+  }
+
+  const tool: ToolConfig = {
+    type: "mcp",
+    name,
+    command,
+    description: `MCP server: ${name}`,
+    ...(args.length > 0 && { args }),
+    ...(env && Object.keys(env).length > 0 && { env }),
+  };
+
+  config.tools.push(tool);
+  await saveConfig(config, path);
+  console.log(`Added MCP server: ${name}`);
+}
+
+export async function mcpList(): Promise<void> {
+  const { config } = await loadConfigFile();
+  const mcpTools = config.tools.filter((t) => t.type === "mcp");
+
+  if (mcpTools.length === 0) {
+    console.log("No MCP servers configured.");
+    return;
+  }
+
+  console.log(`\nMCP servers (${mcpTools.length}):\n`);
+  for (const t of mcpTools) {
+    const tool = t as { name: string; command: string; args?: string[]; env?: Record<string, string> };
+    const cmdLine = [tool.command, ...(tool.args ?? [])].join(" ");
+    console.log(`  ${tool.name}`);
+    console.log(`    command: ${cmdLine}`);
+    if (tool.env && Object.keys(tool.env).length > 0) {
+      console.log(`    env: ${Object.keys(tool.env).join(", ")}`);
+    }
+    console.log();
+  }
+}
+
 export async function unwrapTool(name: string): Promise<void> {
   const { config, path } = await loadConfigFile();
 
