@@ -24,7 +24,7 @@ export async function stopServer() {
   // Find gigai server processes
   let pids: number[] = [];
   try {
-    const out = execFileSync("pgrep", ["-f", "gigai server start"], { encoding: "utf8" });
+    const out = execFileSync("pgrep", ["-f", "gigai start"], { encoding: "utf8" });
     pids = out.trim().split("\n").map(Number).filter(pid => pid && pid !== process.pid);
   } catch {
     // pgrep returns non-zero if no matches

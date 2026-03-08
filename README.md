@@ -34,7 +34,7 @@ npm install -g @schuttdev/gigai
 ### 2. Run the setup wizard
 
 ```bash
-gigai server init
+gigai init
 ```
 
 This walks you through:
@@ -71,13 +71,13 @@ Claude executes `kon shell ...`, `kon fs ...`, etc. behind the scenes.
 ## Server management
 
 ```bash
-gigai server start                    # start the server
-gigai server start --dev              # start without HTTPS (local only)
-gigai server stop                     # stop the server
-gigai server status                   # check if server is running
-gigai server pair                     # generate a new pairing code
-gigai server install                  # install as a background service (macOS launchd)
-gigai server uninstall                # remove background service
+gigai start                           # start the server
+gigai start --dev                     # start without HTTPS (local only)
+gigai stop                            # stop the server
+gigai status                          # check if server is running
+gigai pair                            # generate a new pairing code
+gigai install                         # install as a background service (macOS launchd)
+gigai uninstall                       # remove background service
 ```
 
 ## Adding tools

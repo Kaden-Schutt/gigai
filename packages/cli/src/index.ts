@@ -11,98 +11,99 @@ async function requireServer(): Promise<typeof import("@gigai/server")> {
   }
 }
 
-const serverCommand = defineCommand({
-  meta: { name: "server", description: "Server management commands" },
-  subCommands: {
-    start: defineCommand({
-      meta: { name: "start", description: "Start the gigai server" },
-      args: {
-        config: { type: "string", alias: "c", description: "Config file path" },
-        dev: { type: "boolean", description: "Development mode (no HTTPS)" },
-      },
-      async run({ args }) {
-        const { startServer } = await requireServer();
-        const extraArgs: string[] = [];
-        if (args.config) extraArgs.push("--config", args.config as string);
-        if (args.dev) extraArgs.push("--dev");
-        process.argv.push(...extraArgs);
-        await startServer();
-      },
-    }),
-    init: defineCommand({
-      meta: { name: "init", description: "Interactive setup wizard" },
-      async run() {
-        const { runInit } = await requireServer();
-        await runInit();
-      },
-    }),
-    pair: defineCommand({
-      meta: { name: "pair", description: "Generate a pairing code" },
-      args: {
-        config: { type: "string", alias: "c", description: "Config file path" },
-      },
-      async run({ args }) {
-        const { generateServerPairingCode } = await requireServer();
-        await generateServerPairingCode(args.config as string | undefined);
-      },
-    }),
-    install: defineCommand({
-      meta: { name: "install", description: "Install as persistent background service" },
-      args: {
-        config: { type: "string", alias: "c", description: "Config file path" },
-      },
-      async run({ args }) {
-        const { installDaemon } = await requireServer();
-        await installDaemon(args.config as string | undefined);
-      },
-    }),
-    uninstall: defineCommand({
-      meta: { name: "uninstall", description: "Remove background service" },
-      async run() {
-        const { uninstallDaemon } = await requireServer();
-        await uninstallDaemon();
-      },
-    }),
-    stop: defineCommand({
-      meta: { name: "stop", description: "Stop the running gigai server" },
-      async run() {
-        const { execFileSync } = await import("node:child_process");
-        let pids: number[] = [];
-        try {
-          const out = execFileSync("pgrep", ["-f", "gigai server start"], { encoding: "utf8" });
-          pids = out.trim().split("\n").map(Number).filter(pid => pid && pid !== process.pid);
-        } catch {
-          // pgrep returns non-zero if no matches
-        }
-        if (pids.length === 0) {
-          console.log("No running gigai server found.");
-          return;
-        }
-        for (const pid of pids) {
-          try {
-            process.kill(pid, "SIGTERM");
-            console.log(`Stopped gigai server (PID ${pid})`);
-          } catch (e) {
-            console.error(`Failed to stop PID ${pid}: ${(e as Error).message}`);
-          }
-        }
-      },
-    }),
-    status: defineCommand({
-      meta: { name: "status", description: "Show server status" },
-      async run() {
-        console.log("Server status: checking...");
-        try {
-          const res = await fetch("http://localhost:7443/health");
-          const data = await res.json();
-          console.log(`Status: ${(data as any).status}`);
-          console.log(`Version: ${(data as any).version}`);
-          console.log(`Uptime: ${Math.floor((data as any).uptime / 1000)}s`);
-        } catch {
-          console.log("Server is not running.");
-        }
-      },
-    }),
+const initCommand = defineCommand({
+  meta: { name: "init", description: "Interactive setup wizard" },
+  async run() {
+    const { runInit } = await requireServer();
+    await runInit();
+  },
+});
+
+const startCommand = defineCommand({
+  meta: { name: "start", description: "Start the gigai server" },
+  args: {
+    config: { type: "string", alias: "c", description: "Config file path" },
+    dev: { type: "boolean", description: "Development mode (no HTTPS)" },
+  },
+  async run({ args }) {
+    const { startServer } = await requireServer();
+    const extraArgs: string[] = [];
+    if (args.config) extraArgs.push("--config", args.config as string);
+    if (args.dev) extraArgs.push("--dev");
+    process.argv.push(...extraArgs);
+    await startServer();
+  },
+});
+
+const stopCommand = defineCommand({
+  meta: { name: "stop", description: "Stop the running gigai server" },
+  async run() {
+    const { execFileSync } = await import("node:child_process");
+    let pids: number[] = [];
+    try {
+      const out = execFileSync("pgrep", ["-f", "gigai start"], { encoding: "utf8" });
+      pids = out.trim().split("\n").map(Number).filter(pid => pid && pid !== process.pid);
+    } catch {
+      // pgrep returns non-zero if no matches
+    }
+    if (pids.length === 0) {
+      console.log("No running gigai server found.");
+      return;
+    }
+    for (const pid of pids) {
+      try {
+        process.kill(pid, "SIGTERM");
+        console.log(`Stopped gigai server (PID ${pid})`);
+      } catch (e) {
+        console.error(`Failed to stop PID ${pid}: ${(e as Error).message}`);
+      }
+    }
+  },
+});
+
+const statusCommand = defineCommand({
+  meta: { name: "status", description: "Show server status" },
+  async run() {
+    console.log("Server status: checking...");
+    try {
+      const res = await fetch("http://localhost:7443/health");
+      const data = await res.json();
+      console.log(`Status: ${(data as any).status}`);
+      console.log(`Version: ${(data as any).version}`);
+      console.log(`Uptime: ${Math.floor((data as any).uptime / 1000)}s`);
+    } catch {
+      console.log("Server is not running.");
+    }
+  },
+});
+
+const pairCommand = defineCommand({
+  meta: { name: "pair", description: "Generate a pairing code" },
+  args: {
+    config: { type: "string", alias: "c", description: "Config file path" },
+  },
+  async run({ args }) {
+    const { generateServerPairingCode } = await requireServer();
+    await generateServerPairingCode(args.config as string | undefined);
+  },
+});
+
+const installCommand = defineCommand({
+  meta: { name: "install", description: "Install as persistent background service" },
+  args: {
+    config: { type: "string", alias: "c", description: "Config file path" },
+  },
+  async run({ args }) {
+    const { installDaemon } = await requireServer();
+    await installDaemon(args.config as string | undefined);
+  },
+});
+
+const uninstallCommand = defineCommand({
+  meta: { name: "uninstall", description: "Remove background service" },
+  async run() {
+    const { uninstallDaemon } = await requireServer();
+    await uninstallDaemon();
   },
 });
 
@@ -165,10 +166,16 @@ const main = defineCommand({
   meta: {
     name: "gigai",
     version: VERSION,
-    description: "gigai server — bridge CLI tools to Claude",
+    description: "gigai — bridge CLI tools to Claude",
   },
   subCommands: {
-    server: serverCommand,
+    init: initCommand,
+    start: startCommand,
+    stop: stopCommand,
+    status: statusCommand,
+    pair: pairCommand,
+    install: installCommand,
+    uninstall: uninstallCommand,
     wrap: wrapCommand,
     unwrap: unwrapCommand,
     version: versionCommand,

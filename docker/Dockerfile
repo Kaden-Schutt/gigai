@@ -46,4 +46,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:7443/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 ENTRYPOINT ["node", "packages/cli/dist/index.js"]
-CMD ["server", "start", "--config", "/data/gigai.config.json"]
+CMD ["start", "--config", "/data/gigai.config.json"]

@@ -33,7 +33,6 @@ function getLaunchdPlist(configPath: string): string {
   <array>
     <string>${nodeBin}</string>
     <string>${bin}</string>
-    <string>server</string>
     <string>start</string>
     <string>--config</string>
     <string>${configPath}</string>
@@ -61,7 +60,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=${bin} server start --config ${configPath}
+ExecStart=${bin} start --config ${configPath}
 Restart=always
 RestartSec=5
 WorkingDirectory=${homedir()}
@@ -110,7 +109,7 @@ export async function installDaemon(configPath?: string): Promise<void> {
     console.log(`  Remove: systemctl --user disable gigai`);
   } else {
     console.log("  Persistent daemon not supported on this platform.");
-    console.log("  Run 'gigai server start' manually.");
+    console.log("  Run 'gigai start' manually.");
   }
 }
 

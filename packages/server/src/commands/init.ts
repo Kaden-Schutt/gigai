@@ -235,7 +235,7 @@ export async function runInit(): Promise<void> {
       serverUrl = await ensureTailscaleFunnel(port);
     } catch (e) {
       console.error(`  ${(e as Error).message}`);
-      console.log("  You can enable Funnel later and run 'gigai server start' manually.\n");
+      console.log("  You can enable Funnel later and run 'gigai start' manually.\n");
     }
   } else if (httpsProvider === "cloudflare" && httpsConfig && "domain" in httpsConfig && httpsConfig.domain) {
     serverUrl = `https://${httpsConfig.domain}`;
@@ -251,7 +251,7 @@ export async function runInit(): Promise<void> {
 
   // 8. Start server in background
   console.log("\n  Starting server...");
-  const serverArgs = ["server", "start", "--config", configPath];
+  const serverArgs = ["start", "--config", configPath];
   if (!httpsConfig) serverArgs.push("--dev");
 
   const child = spawn("gigai", serverArgs, {
@@ -293,7 +293,7 @@ export async function runInit(): Promise<void> {
 
   if (!code) {
     console.log("\n  Server is starting but not ready yet.");
-    console.log("  Run 'gigai server pair' once it's up to get a pairing code.\n");
+    console.log("  Run 'gigai pair' once it's up to get a pairing code.\n");
     return;
   }
 
@@ -307,5 +307,5 @@ export async function runInit(): Promise<void> {
   console.log(`  Then show me the skill file output so I can save it.`);
   console.log(`  ──────────────────────────────────────────────`);
   console.log(`\n  Pairing code expires in ${config.auth.pairingTtlSeconds / 60} minutes.`);
-  console.log(`  Run 'gigai server pair' to generate a new one.\n`);
+  console.log(`  Run 'gigai pair' to generate a new one.\n`);
 }

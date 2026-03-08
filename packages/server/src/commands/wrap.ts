@@ -155,7 +155,7 @@ export async function generateServerPairingCode(configPath?: string): Promise<vo
     console.log(`Expires in ${data.expiresIn / 60} minutes.`);
   } catch (e) {
     if ((e as Error).message.includes("fetch failed") || (e as Error).message.includes("ECONNREFUSED")) {
-      console.error("Server is not running. Start it with: gigai server start");
+      console.error("Server is not running. Start it with: gigai start");
     } else {
       console.error(`Error: ${(e as Error).message}`);
     }

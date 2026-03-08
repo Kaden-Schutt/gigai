@@ -26,7 +26,7 @@ export async function adminRoutes(server: FastifyInstance) {
       server.log.info("Restarting server after update...");
 
       // Build restart args from current process
-      const args = ["server", "start"];
+      const args = ["start"];
       const configIdx = process.argv.indexOf("--config");
       if (configIdx !== -1 && process.argv[configIdx + 1]) {
         args.push("--config", process.argv[configIdx + 1]);
