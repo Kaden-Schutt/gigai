@@ -4,6 +4,34 @@ import { resolve } from "node:path";
 import type { GigaiConfig, ToolConfig } from "@gigai/shared";
 import { GigaiConfigSchema } from "@gigai/shared";
 
+function splitCommand(input: string): { command: string; args: string[] } {
+  const tokens: string[] = [];
+  let current = "";
+  let inQuote: string | null = null;
+
+  for (const ch of input.trim()) {
+    if (inQuote) {
+      if (ch === inQuote) {
+        inQuote = null;
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"' || ch === "'") {
+      inQuote = ch;
+    } else if (ch === " " || ch === "\t") {
+      if (current) {
+        tokens.push(current);
+        current = "";
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) tokens.push(current);
+
+  return { command: tokens[0] ?? input.trim(), args: tokens.slice(1) };
+}
+
 async function loadConfigFile(path?: string): Promise<{ config: GigaiConfig; path: string }> {
   const configPath = resolve(path ?? "gigai.config.json");
   const raw = await readFile(configPath, "utf8");
@@ -19,17 +47,22 @@ export async function wrapCli(): Promise<void> {
   const { config, path } = await loadConfigFile();
 
   const name = await input({ message: "Tool name:", required: true });
-  const command = await input({ message: "Command:", required: true });
+  const commandInput = await input({
+    message: "Command (as you'd run it in your terminal):",
+    required: true,
+  });
   const description = await input({ message: "Description:", required: true });
-  const argsStr = await input({ message: "Default args (space-separated, optional):" });
   const timeoutStr = await input({ message: "Timeout in ms (optional):", default: "30000" });
+
+  // Split like a shell: first token is the binary, rest are default args
+  const { command, args } = splitCommand(commandInput);
 
   const tool: ToolConfig = {
     type: "cli",
     name,
     command,
     description,
-    ...(argsStr && { args: argsStr.split(" ").filter(Boolean) }),
+    ...(args.length > 0 && { args }),
     timeout: parseInt(timeoutStr, 10),
   };
 
