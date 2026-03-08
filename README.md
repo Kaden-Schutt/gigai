@@ -17,7 +17,7 @@
 
 Kon is a lightweight client that runs inside Claude's code execution sandbox. It connects over HTTPS to **gigai**, a server running on your machine that exposes tools — shell commands, filesystem access, MCP servers, scripts — through an authenticated API.
 
-<p align="center">
+<p align="left">
   <img src="assets/kon-demo.png" alt="Kon pairing demo" width="720" />
 </p>
 
