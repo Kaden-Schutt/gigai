@@ -94,7 +94,7 @@ The wizard generates a prompt for your server — paste it into Claude. It will 
 > Install kon and pair with my server:
 > ```bash
 > npm install -g @schuttdev/kon
-> kon pair ABC123XY https://your-machine.tail1234.ts.net:7443
+> kon pair ABC123XY https://your-machine.tail1234.ts.net
 > ```
 > Then show me the skill file output so I can save it.
 
