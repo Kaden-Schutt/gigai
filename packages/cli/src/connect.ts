@@ -32,8 +32,8 @@ export async function connect(serverName?: string): Promise<{ serverUrl: string;
   if (entry.sessionToken && entry.sessionExpiresAt) {
     if (Date.now() < entry.sessionExpiresAt - 5 * 60 * 1000) {
       // Check server version even with cached session
-      await checkAndUpdateServer(entry.server, entry.sessionToken);
-      return { serverUrl: entry.server, sessionToken: entry.sessionToken };
+      const token = await checkAndUpdateServer(entry.server, entry.sessionToken, name, entry.token);
+      return { serverUrl: entry.server, sessionToken: token };
     }
   }
 
@@ -60,12 +60,17 @@ export async function refreshSession(
   await updateServerSession(serverName, res.sessionToken, res.expiresAt);
 
   // Check server version after connecting
-  await checkAndUpdateServer(serverUrl, res.sessionToken);
+  const token = await checkAndUpdateServer(serverUrl, res.sessionToken, serverName, encryptedToken);
 
-  return { serverUrl, sessionToken: res.sessionToken };
+  return { serverUrl, sessionToken: token };
 }
 
-async function checkAndUpdateServer(serverUrl: string, sessionToken: string): Promise<void> {
+async function checkAndUpdateServer(
+  serverUrl: string,
+  sessionToken: string,
+  serverName?: string,
+  encryptedToken?: string,
+): Promise<string> {
   try {
     const http = createHttpClient(serverUrl);
     const health = await http.get<HealthResponse>("/health");
@@ -91,9 +96,20 @@ async function checkAndUpdateServer(serverUrl: string, sessionToken: string): Pr
 
       if (res.updated) {
         console.log("Server updated and restarting.");
-        // Wait for server to restart
         await waitForServer(serverUrl, 15_000);
         console.log("Server is back online.");
+
+        // Server restarted — old session is gone, get a new one
+        if (serverName && encryptedToken) {
+          const orgUuid = getOrgUUID();
+          const unauthHttp = createHttpClient(serverUrl);
+          const connectRes = await unauthHttp.post<ConnectResponse>("/auth/connect", {
+            encryptedToken,
+            orgUuid,
+          });
+          await updateServerSession(serverName, connectRes.sessionToken, connectRes.expiresAt);
+          return connectRes.sessionToken;
+        }
       } else {
         console.log(`Server update failed: ${res.error ?? "unknown error"}`);
       }
@@ -101,6 +117,7 @@ async function checkAndUpdateServer(serverUrl: string, sessionToken: string): Pr
   } catch {
     // Version check/update is best-effort — don't block connect
   }
+  return sessionToken;
 }
 
 async function waitForServer(serverUrl: string, timeoutMs: number): Promise<void> {

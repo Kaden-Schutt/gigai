@@ -1,6 +1,6 @@
 {
   "name": "@schuttdev/kon",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "module",
   "license": "MIT",
   "description": "Lightweight gigai client for Claude code execution",
