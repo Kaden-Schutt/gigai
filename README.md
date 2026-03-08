@@ -66,10 +66,14 @@ You decide exactly what Claude can touch. Nothing is open unless you open it.
 
 ## Quickstart
 
-**Prerequisites:** [Tailscale](https://tailscale.com/) with Funnel enabled ([macOS](docs/setup-macos.md) | [Linux](docs/setup-linux.md) | [WSL](docs/setup-wsl.md) | [Docker](docs/setup-docker.md)), and Claude capabilities configured for code execution — go to **Settings > Capabilities** on claude.ai:
+**Prerequisites:** 
+[Tailscale](https://tailscale.com/) with Funnel enabled. 
+> Guides: [macOS](docs/setup-macos.md) | [Linux](docs/setup-linux.md) | [WSL](docs/setup-wsl.md) | [Docker](docs/setup-docker.md)
 
-<p align="center">
-  <img src="assets/claude-capabilities.png" alt="Claude capabilities settings" width="600" />
+Claude capabilities configured for code execution — go to **Settings > Capabilities** on claude.ai:
+
+<p align="left">
+  <img src="assets/claude-capabilities.png" alt="Claude capabilities settings" width="800" />
 </p>
 
 ### 1. Install and run the setup wizard
@@ -83,12 +87,14 @@ gigai init
 
 The wizard generates a prompt for your server — paste it into Claude. It will look something like:
 
-```bash
-npm install -g @schuttdev/kon
-kon pair ABC123XY https://your-machine.tail1234.ts.net:7443
-```
+> Install kon and pair with my server:
+> ```bash
+> npm install -g @schuttdev/kon
+> kon pair ABC123XY https://your-machine.tail1234.ts.net:7443
+> ```
+> Then show me the skill file output so I can save it.
 
-> **Don't paste the example above** — use the actual prompt from your wizard, which contains your real pairing code and server URL.
+**Don't paste the example above** — use the actual prompt from your wizard, which contains your real pairing code and server URL.
 
 ### 3. Use it
 
