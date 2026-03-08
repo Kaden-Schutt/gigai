@@ -1,8 +1,7 @@
 import { defineCommand, runMain } from "citty";
-import { readConfig, getActiveEntry } from "../../cli/src/config.js";
-import { connect, refreshSession } from "../../cli/src/connect.js";
+import { readConfig } from "../../cli/src/config.js";
+import { connect } from "../../cli/src/connect.js";
 import { pair } from "../../cli/src/pair.js";
-import { createHttpClient } from "../../cli/src/http.js";
 import { fetchTools, fetchToolDetail } from "../../cli/src/discover.js";
 import { execTool, execMcpTool } from "../../cli/src/exec.js";
 import { upload, download } from "../../cli/src/transfer.js";
@@ -23,46 +22,21 @@ if (firstArg && !firstArg.startsWith("-") && !KNOWN_COMMANDS.has(firstArg)) {
   const toolArgs = process.argv.slice(3);
 
   try {
-    let { serverUrl, sessionToken } = await connect();
-    let http = createHttpClient(serverUrl, sessionToken);
+    const { http } = await connect();
+    const { tool: detail } = await fetchToolDetail(http, toolName);
 
-    const runTool = async () => {
-      const { tool: detail } = await fetchToolDetail(http, toolName);
-
-      if (detail.type === "mcp") {
-        const mcpToolName = toolArgs[0];
-        if (!mcpToolName) {
-          const toolNames = (detail.mcpTools ?? []).map(t => `  ${t.name} — ${t.description}`);
-          console.log(`MCP tools for ${toolName}:\n${toolNames.join("\n")}`);
-        } else {
-          const jsonArg = toolArgs.slice(1).join(" ");
-          const args = jsonArg ? JSON.parse(jsonArg) : {};
-          await execMcpTool(http, toolName, mcpToolName, args);
-        }
+    if (detail.type === "mcp") {
+      const mcpToolName = toolArgs[0];
+      if (!mcpToolName) {
+        const toolNames = (detail.mcpTools ?? []).map(t => `  ${t.name} — ${t.description}`);
+        console.log(`MCP tools for ${toolName}:\n${toolNames.join("\n")}`);
       } else {
-        await execTool(http, toolName, toolArgs);
+        const jsonArg = toolArgs.slice(1).join(" ");
+        const args = jsonArg ? JSON.parse(jsonArg) : {};
+        await execMcpTool(http, toolName, mcpToolName, args);
       }
-    };
-
-    try {
-      await runTool();
-    } catch (e) {
-      const msg = (e as Error).message;
-      if (msg.includes("Invalid session") || msg.includes("Session expired") || msg.includes("Authorization")) {
-        // Session was stale (e.g. server restarted) — refresh and retry once
-        const config = await readConfig();
-        const active = getActiveEntry(config);
-        if (active) {
-          const refreshed = await refreshSession(active.name, active.entry.server, active.entry.token);
-          sessionToken = refreshed.sessionToken;
-          http = createHttpClient(serverUrl, sessionToken);
-          await runTool();
-        } else {
-          throw e;
-        }
-      } else {
-        throw e;
-      }
+    } else {
+      await execTool(http, toolName, toolArgs);
     }
   } catch (e) {
     console.error(`Error: ${(e as Error).message}`);
@@ -98,8 +72,7 @@ function runCitty() {
   const listCommand = defineCommand({
     meta: { name: "list", description: "List available tools" },
     async run() {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+      const { http } = await connect();
       const tools = await fetchTools(http);
       console.log(formatToolList(tools));
     },
@@ -111,8 +84,7 @@ function runCitty() {
       tool: { type: "positional", description: "Tool name", required: true },
     },
     async run({ args }) {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+      const { http } = await connect();
       const { tool } = await fetchToolDetail(http, args.tool);
       console.log(formatToolDetail(tool));
     },
@@ -132,8 +104,7 @@ function runCitty() {
       file: { type: "positional", description: "File path", required: true },
     },
     async run({ args }) {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+      const { http } = await connect();
       await upload(http, args.file);
     },
   });
@@ -145,8 +116,7 @@ function runCitty() {
       dest: { type: "positional", description: "Destination path", required: true },
     },
     async run({ args }) {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+      const { http } = await connect();
       await download(http, args.id, args.dest);
     },
   });
@@ -161,8 +131,7 @@ function runCitty() {
   const skillCommand = defineCommand({
     meta: { name: "skill", description: "Regenerate the skill zip with current tool details" },
     async run() {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+      const { http } = await connect();
 
       // Fetch all tools and their details
       const tools = await fetchTools(http);
@@ -198,8 +167,7 @@ function runCitty() {
       at: { type: "string", description: "Human-readable time (e.g. '9:00 AM tomorrow')" },
     },
     async run({ args }) {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+      const { http } = await connect();
 
       // Parse: kon cron add [--at "time"] <schedule-or-tool> <tool> [args...]
       // Raw argv after "cron add": find positional args (skip --at and its value)
@@ -269,8 +237,7 @@ function runCitty() {
   const cronListCommand = defineCommand({
     meta: { name: "list", description: "List scheduled jobs" },
     async run() {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+      const { http } = await connect();
       const res = await http.get<{ jobs: Array<{
         id: string; schedule: string; tool: string; args: string[];
         enabled: boolean; lastRun?: number; nextRun?: number; description?: string;
@@ -300,8 +267,7 @@ function runCitty() {
       id: { type: "positional", description: "Job ID", required: true },
     },
     async run({ args }) {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+      const { http } = await connect();
       await http.delete(`/cron/${encodeURIComponent(args.id)}`);
       console.log(`Removed: ${args.id}`);
     },

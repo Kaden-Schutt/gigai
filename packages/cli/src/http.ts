@@ -8,6 +8,8 @@ export interface HttpClient {
   getRaw(path: string): Promise<Response>;
 }
 
+export type OnAuthFailure = () => Promise<string | undefined>;
+
 async function getProxyDispatcher(): Promise<unknown | undefined> {
   const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
   if (!proxyUrl) return undefined;
@@ -31,32 +33,48 @@ async function ensureDispatcher(): Promise<unknown | undefined> {
   return _dispatcher;
 }
 
-export function createHttpClient(serverUrl: string, sessionToken?: string): HttpClient {
+export function createHttpClient(
+  serverUrl: string,
+  sessionToken?: string,
+  onAuthFailure?: OnAuthFailure,
+): HttpClient {
   const baseUrl = serverUrl.replace(/\/$/, "");
+  let currentToken = sessionToken;
+
+  async function rawFetch(url: string, init: RequestInit & { dispatcher?: unknown }): Promise<Response> {
+    const dispatcher = await ensureDispatcher();
+    const fetchOpts: any = { ...init };
+    if (dispatcher) fetchOpts.dispatcher = dispatcher;
+    return fetch(url, fetchOpts);
+  }
+
+  function authHeaders(): Record<string, string> {
+    const h: Record<string, string> = {};
+    if (currentToken) h["Authorization"] = `Bearer ${currentToken}`;
+    return h;
+  }
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
       ...(init.headers as Record<string, string> ?? {}),
+      ...authHeaders(),
     };
-
-    if (sessionToken) {
-      headers["Authorization"] = `Bearer ${sessionToken}`;
-    }
 
     if (!headers["Content-Type"] && init.body && typeof init.body === "string") {
       headers["Content-Type"] = "application/json";
     }
 
-    const dispatcher = await ensureDispatcher();
-    const fetchOpts: any = {
-      ...init,
-      headers,
-    };
-    if (dispatcher) {
-      fetchOpts.dispatcher = dispatcher;
-    }
+    let res = await rawFetch(`${baseUrl}${path}`, { ...init, headers });
 
-    const res = await fetch(`${baseUrl}${path}`, fetchOpts);
+    // Retry once on 401 if we have a refresh callback
+    if (res.status === 401 && onAuthFailure) {
+      const newToken = await onAuthFailure();
+      if (newToken) {
+        currentToken = newToken;
+        headers["Authorization"] = `Bearer ${newToken}`;
+        res = await rawFetch(`${baseUrl}${path}`, { ...init, headers });
+      }
+    }
 
     if (!res.ok) {
       let errorBody: ErrorResponse | undefined;
@@ -84,16 +102,22 @@ export function createHttpClient(serverUrl: string, sessionToken?: string): Http
     },
 
     async delete(path: string): Promise<void> {
-      const headers: Record<string, string> = {};
-      if (sessionToken) {
-        headers["Authorization"] = `Bearer ${sessionToken}`;
+      let res = await rawFetch(`${baseUrl}${path}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+
+      if (res.status === 401 && onAuthFailure) {
+        const newToken = await onAuthFailure();
+        if (newToken) {
+          currentToken = newToken;
+          res = await rawFetch(`${baseUrl}${path}`, {
+            method: "DELETE",
+            headers: authHeaders(),
+          });
+        }
       }
-      const dispatcher = await ensureDispatcher();
-      const fetchOpts: any = { method: "DELETE", headers };
-      if (dispatcher) {
-        fetchOpts.dispatcher = dispatcher;
-      }
-      const res = await fetch(`${baseUrl}${path}`, fetchOpts);
+
       if (!res.ok) {
         let errorBody: ErrorResponse | undefined;
         try {
@@ -104,22 +128,23 @@ export function createHttpClient(serverUrl: string, sessionToken?: string): Http
     },
 
     async postMultipart<T>(path: string, formData: FormData): Promise<T> {
-      const headers: Record<string, string> = {};
-      if (sessionToken) {
-        headers["Authorization"] = `Bearer ${sessionToken}`;
-      }
-
-      const dispatcher = await ensureDispatcher();
-      const fetchOpts: any = {
+      let res = await rawFetch(`${baseUrl}${path}`, {
         method: "POST",
-        headers,
+        headers: authHeaders(),
         body: formData,
-      };
-      if (dispatcher) {
-        fetchOpts.dispatcher = dispatcher;
-      }
+      });
 
-      const res = await fetch(`${baseUrl}${path}`, fetchOpts);
+      if (res.status === 401 && onAuthFailure) {
+        const newToken = await onAuthFailure();
+        if (newToken) {
+          currentToken = newToken;
+          res = await rawFetch(`${baseUrl}${path}`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: formData,
+          });
+        }
+      }
 
       if (!res.ok) {
         let errorBody: ErrorResponse | undefined;
@@ -133,18 +158,19 @@ export function createHttpClient(serverUrl: string, sessionToken?: string): Http
     },
 
     async getRaw(path: string): Promise<Response> {
-      const headers: Record<string, string> = {};
-      if (sessionToken) {
-        headers["Authorization"] = `Bearer ${sessionToken}`;
-      }
+      let res = await rawFetch(`${baseUrl}${path}`, {
+        headers: authHeaders(),
+      });
 
-      const dispatcher = await ensureDispatcher();
-      const fetchOpts: any = { headers };
-      if (dispatcher) {
-        fetchOpts.dispatcher = dispatcher;
+      if (res.status === 401 && onAuthFailure) {
+        const newToken = await onAuthFailure();
+        if (newToken) {
+          currentToken = newToken;
+          res = await rawFetch(`${baseUrl}${path}`, {
+            headers: authHeaders(),
+          });
+        }
       }
-
-      const res = await fetch(`${baseUrl}${path}`, fetchOpts);
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);

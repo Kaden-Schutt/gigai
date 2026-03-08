@@ -1,10 +1,16 @@
 import type { ConnectResponse, HealthResponse } from "@gigai/shared";
 import { readConfig, writeConfig, getActiveEntry, updateServerSession } from "./config.js";
 import { getOrgUUID } from "./identity.js";
-import { createHttpClient } from "./http.js";
+import { createHttpClient, type HttpClient } from "./http.js";
 import { VERSION } from "./version.js";
 
-export async function connect(serverName?: string): Promise<{ serverUrl: string; sessionToken: string }> {
+export interface ConnectResult {
+  serverUrl: string;
+  sessionToken: string;
+  http: HttpClient;
+}
+
+export async function connect(serverName?: string): Promise<ConnectResult> {
   const config = await readConfig();
 
   // Switch active server if name provided
@@ -28,23 +34,42 @@ export async function connect(serverName?: string): Promise<{ serverUrl: string;
 
   const { name, entry } = active;
 
+  // Auth refresh callback — used by HttpClient on 401
+  const onAuthFailure = async (): Promise<string | undefined> => {
+    try {
+      const result = await doRefreshSession(name, entry.server, entry.token);
+      return result.sessionToken;
+    } catch {
+      return undefined;
+    }
+  };
+
   // Check if existing session is still valid (with 5 min buffer)
   if (entry.sessionToken && entry.sessionExpiresAt) {
     if (Date.now() < entry.sessionExpiresAt - 5 * 60 * 1000) {
-      // Check server version even with cached session
       const token = await checkAndUpdateServer(entry.server, entry.sessionToken, name, entry.token);
-      return { serverUrl: entry.server, sessionToken: token };
+      const http = createHttpClient(entry.server, token, onAuthFailure);
+      return { serverUrl: entry.server, sessionToken: token, http };
     }
   }
 
-  return refreshSession(name, entry.server, entry.token);
+  const result = await doRefreshSession(name, entry.server, entry.token);
+  const http = createHttpClient(entry.server, result.sessionToken, onAuthFailure);
+  return { serverUrl: entry.server, sessionToken: result.sessionToken, http };
 }
 
 /**
  * Exchange the stored encrypted token for a fresh session.
- * Called on initial connect and on 401 retry.
  */
 export async function refreshSession(
+  serverName: string,
+  serverUrl: string,
+  encryptedToken: string,
+): Promise<{ serverUrl: string; sessionToken: string }> {
+  return doRefreshSession(serverName, serverUrl, encryptedToken);
+}
+
+async function doRefreshSession(
   serverName: string,
   serverUrl: string,
   encryptedToken: string,
