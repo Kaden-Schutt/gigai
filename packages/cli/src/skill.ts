@@ -65,6 +65,15 @@ gigai download <id> <dest>
 - Tools are scoped to what the user has configured — if a tool is missing, tell the user
 `;
 
+export async function hasExistingSkill(): Promise<boolean> {
+  try {
+    await readFile("/mnt/skills/user/gigai/config.json", "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 interface SkillConfig {
   activeServer?: string;
   servers: Record<string, { server: string; token: string }>;
