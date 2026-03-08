@@ -1,4 +1,5 @@
 import type { ToolSummary, ToolDetail } from "@gigai/shared";
+import type { ClientConfig } from "./config.js";
 
 export function formatToolList(tools: ToolSummary[]): string {
   if (tools.length === 0) return "No tools registered.";
@@ -43,25 +44,26 @@ export function formatToolDetail(detail: ToolDetail): string {
   return lines.join("\n");
 }
 
-export function formatStatus(
-  connected: boolean,
-  serverUrl?: string,
-  sessionExpiresAt?: number,
-): string {
-  if (!connected) {
+export function formatStatus(config: ClientConfig): string {
+  const serverNames = Object.keys(config.servers);
+  if (serverNames.length === 0) {
     return "Not connected. Run 'gigai pair <code> <server-url>' to set up.";
   }
 
-  const lines = [`Connected to: ${serverUrl}`];
-  if (sessionExpiresAt) {
-    const remaining = sessionExpiresAt - Date.now();
-    if (remaining > 0) {
-      const mins = Math.floor(remaining / 60_000);
-      lines.push(`Session expires in: ${mins} minutes`);
-    } else {
-      lines.push("Session expired. Will auto-renew on next command.");
+  const lines: string[] = [];
+  for (const name of serverNames) {
+    const entry = config.servers[name];
+    const active = name === config.activeServer ? " (active)" : "";
+    lines.push(`  ${name}${active}  ${entry.server}`);
+    if (entry.sessionExpiresAt) {
+      const remaining = entry.sessionExpiresAt - Date.now();
+      if (remaining > 0) {
+        lines.push(`    Session expires in ${Math.floor(remaining / 60_000)} minutes`);
+      } else {
+        lines.push("    Session expired — will auto-renew on next command");
+      }
     }
   }
 
-  return lines.join("\n");
+  return `Servers:\n${lines.join("\n")}`;
 }

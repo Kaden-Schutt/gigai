@@ -184,10 +184,31 @@ export async function runInit(): Promise<void> {
     });
   }
 
-  // 4. Generate config
+  // 4. Determine server name
+  let serverName: string | undefined;
+
+  if (httpsProvider === "tailscale") {
+    const dnsName = await getTailscaleDnsName();
+    if (dnsName) {
+      serverName = dnsName.split(".")[0];
+    }
+  } else if (httpsProvider === "cloudflare") {
+    serverName = await input({
+      message: "Server name (identifies this machine):",
+      required: true,
+    });
+  }
+
+  if (!serverName) {
+    const { hostname: osHostname } = await import("node:os");
+    serverName = osHostname();
+  }
+
+  // 5. Generate config
   const encryptionKey = generateEncryptionKey();
 
   const config: GigaiConfig = {
+    serverName,
     server: {
       port,
       host: "0.0.0.0",
@@ -201,12 +222,12 @@ export async function runInit(): Promise<void> {
     tools,
   };
 
-  // 5. Write config
+  // 6. Write config
   const configPath = resolve("gigai.config.json");
   await writeFile(configPath, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
   console.log(`\n  Config written to: ${configPath}`);
 
-  // 6. Enable HTTPS and detect server URL
+  // 7. Enable HTTPS and detect server URL
   let serverUrl: string | undefined;
 
   if (httpsProvider === "tailscale") {
@@ -228,7 +249,7 @@ export async function runInit(): Promise<void> {
     });
   }
 
-  // 7. Start server in background
+  // 8. Start server in background
   console.log("\n  Starting server...");
   const serverArgs = ["server", "start", "--config", configPath];
   if (!httpsConfig) serverArgs.push("--dev");
@@ -253,7 +274,7 @@ export async function runInit(): Promise<void> {
     console.log(`  Server starting in background (PID ${child.pid})`);
   }
 
-  // 8. Generate pairing code from the running server
+  // 9. Generate pairing code from the running server
   let code: string | undefined;
   const maxRetries = 5;
   for (let i = 0; i < maxRetries; i++) {

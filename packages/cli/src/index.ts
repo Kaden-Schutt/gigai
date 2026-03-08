@@ -11,50 +11,42 @@ import { formatToolList, formatToolDetail, formatStatus } from "./output.js";
 
 const mode = detectMode();
 
-// Known subcommands for client mode
-const CLIENT_COMMANDS = new Set([
+// All known subcommands across both modes
+const KNOWN_COMMANDS = new Set([
   "pair", "connect", "list", "help", "status",
   "upload", "download", "version", "--help", "-h",
+  "server", "wrap", "unwrap",
 ]);
 
-// In client mode, intercept unknown commands before citty sees them
-if (mode === "client") {
-  const firstArg = process.argv[2];
-  if (firstArg && !firstArg.startsWith("-") && !CLIENT_COMMANDS.has(firstArg)) {
-    // Dynamic tool execution
-    const toolName = firstArg;
-    const toolArgs = process.argv.slice(3);
+// Intercept unknown commands as dynamic tool execution
+const firstArg = process.argv[2];
+if (firstArg && !firstArg.startsWith("-") && !KNOWN_COMMANDS.has(firstArg)) {
+  const toolName = firstArg;
+  const toolArgs = process.argv.slice(3);
 
-    try {
-      const { serverUrl, sessionToken } = await connect();
-      const http = createHttpClient(serverUrl, sessionToken);
+  try {
+    const { serverUrl, sessionToken } = await connect();
+    const http = createHttpClient(serverUrl, sessionToken);
 
-      // Fetch tool detail to determine type
-      const { tool: detail } = await fetchToolDetail(http, toolName);
+    // Fetch tool detail to check if it's MCP (needs different endpoint)
+    const { tool: detail } = await fetchToolDetail(http, toolName);
 
-      if (detail.type === "mcp") {
-        // MCP tools: first arg is the MCP tool name, rest is JSON args
-        // Or if tool has only one MCP tool, args are passed as JSON directly
-        const mcpToolName = toolArgs[0];
-        if (!mcpToolName) {
-          // List available MCP tools for this server
-          const toolNames = (detail.mcpTools ?? []).map(t => `  ${t.name} — ${t.description}`);
-          console.log(`MCP tools for ${toolName}:\n${toolNames.join("\n")}`);
-        } else {
-          const jsonArg = toolArgs.slice(1).join(" ");
-          const args = jsonArg ? JSON.parse(jsonArg) : {};
-          await execMcpTool(http, toolName, mcpToolName, args);
-        }
+    if (detail.type === "mcp") {
+      const mcpToolName = toolArgs[0];
+      if (!mcpToolName) {
+        const toolNames = (detail.mcpTools ?? []).map(t => `  ${t.name} — ${t.description}`);
+        console.log(`MCP tools for ${toolName}:\n${toolNames.join("\n")}`);
       } else {
-        await execTool(http, toolName, toolArgs);
+        const jsonArg = toolArgs.slice(1).join(" ");
+        const args = jsonArg ? JSON.parse(jsonArg) : {};
+        await execMcpTool(http, toolName, mcpToolName, args);
       }
-    } catch (e) {
-      console.error(`Error: ${(e as Error).message}`);
-      process.exitCode = 1;
+    } else {
+      await execTool(http, toolName, toolArgs);
     }
-    // Don't fall through to citty
-  } else {
-    runCitty();
+  } catch (e) {
+    console.error(`Error: ${(e as Error).message}`);
+    process.exitCode = 1;
   }
 } else {
   runCitty();
@@ -76,8 +68,11 @@ function runCitty() {
 
   const connectCommand = defineCommand({
     meta: { name: "connect", description: "Establish a session with the server" },
-    async run() {
-      const { serverUrl } = await connect();
+    args: {
+      name: { type: "positional", description: "Server name (optional)", required: false },
+    },
+    async run({ args }) {
+      const { serverUrl } = await connect(args.name as string | undefined);
       console.log(`Connected to ${serverUrl}`);
     },
   });
@@ -109,8 +104,7 @@ function runCitty() {
     meta: { name: "status", description: "Show connection status" },
     async run() {
       const config = await readConfig();
-      const connected = Boolean(config.server && config.token);
-      console.log(formatStatus(connected, config.server, config.sessionExpiresAt));
+      console.log(formatStatus(config));
     },
   });
 

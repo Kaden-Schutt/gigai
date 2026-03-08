@@ -80,6 +80,7 @@ export const ServerConfigSchema = z.object({
 });
 
 export const GigaiConfigSchema = z.object({
+  serverName: z.string().optional(),
   server: ServerConfigSchema,
   auth: AuthConfigSchema,
   tools: z.array(ToolConfigSchema).default([]),

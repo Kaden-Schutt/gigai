@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
+import { hostname } from "node:os";
 import { GigaiError, ErrorCode, type GigaiConfig, type PairRequest, type ConnectRequest } from "@gigai/shared";
 import { generatePairingCode, validateAndPair } from "./pairing.js";
 import { connectWithToken } from "./session.js";
@@ -11,6 +12,7 @@ export function registerAuthRoutes(
   config: GigaiConfig,
 ) {
   const serverFingerprint = randomBytes(16).toString("hex");
+  const serverName = config.serverName ?? hostname();
 
   server.post<{ Body: PairRequest }>("/auth/pair", {
     config: {
@@ -35,7 +37,7 @@ export function registerAuthRoutes(
       config.auth.encryptionKey,
       serverFingerprint,
     );
-    return { encryptedToken: JSON.stringify(encryptedToken) };
+    return { encryptedToken: JSON.stringify(encryptedToken), serverName };
   });
 
   server.post<{ Body: ConnectRequest }>("/auth/connect", {

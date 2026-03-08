@@ -6,6 +6,7 @@ export interface PairRequest {
 
 export interface PairResponse {
   encryptedToken: string;
+  serverName: string;
 }
 
 export interface ConnectRequest {
