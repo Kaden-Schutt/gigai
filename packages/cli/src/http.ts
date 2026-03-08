@@ -3,6 +3,7 @@ import type { ErrorResponse } from "@gigai/shared";
 export interface HttpClient {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
+  delete(path: string): Promise<void>;
   postMultipart<T>(path: string, formData: FormData): Promise<T>;
   getRaw(path: string): Promise<Response>;
 }
@@ -80,6 +81,26 @@ export function createHttpClient(serverUrl: string, sessionToken?: string): Http
         method: "POST",
         body: body ? JSON.stringify(body) : undefined,
       });
+    },
+
+    async delete(path: string): Promise<void> {
+      const headers: Record<string, string> = {};
+      if (sessionToken) {
+        headers["Authorization"] = `Bearer ${sessionToken}`;
+      }
+      const dispatcher = await ensureDispatcher();
+      const fetchOpts: any = { method: "DELETE", headers };
+      if (dispatcher) {
+        fetchOpts.dispatcher = dispatcher;
+      }
+      const res = await fetch(`${baseUrl}${path}`, fetchOpts);
+      if (!res.ok) {
+        let errorBody: ErrorResponse | undefined;
+        try {
+          errorBody = await res.json() as ErrorResponse;
+        } catch {}
+        throw new Error(errorBody?.error?.message ?? `HTTP ${res.status}`);
+      }
     },
 
     async postMultipart<T>(path: string, formData: FormData): Promise<T> {

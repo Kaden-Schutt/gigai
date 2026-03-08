@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { GigaiError, ErrorCode } from "@gigai/shared";
+import { parseAtExpression } from "../cron/scheduler.js";
 
 export async function cronRoutes(server: FastifyInstance) {
   // List all cron jobs
@@ -25,7 +26,14 @@ export async function cronRoutes(server: FastifyInstance) {
       },
     },
   }, async (request) => {
-    const { schedule, tool, args, description, oneShot } = request.body;
+    let { schedule, tool, args, description, oneShot } = request.body;
+
+    // Handle @at prefix: convert human-readable time to cron expression
+    if (schedule.startsWith("@at ")) {
+      const atExpr = schedule.slice(4);
+      schedule = parseAtExpression(atExpr);
+      oneShot = true;
+    }
 
     // Validate that the tool exists
     if (!server.registry.has(tool)) {

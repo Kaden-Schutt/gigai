@@ -13,7 +13,7 @@ import type { ToolDetail } from "@gigai/shared";
 
 const KNOWN_COMMANDS = new Set([
   "pair", "connect", "list", "help", "status",
-  "upload", "download", "version", "skill", "--help", "-h",
+  "upload", "download", "version", "skill", "cron", "--help", "-h",
 ]);
 
 // Intercept unknown commands as dynamic tool execution
@@ -169,6 +169,130 @@ function runCitty() {
     },
   });
 
+  const cronAddCommand = defineCommand({
+    meta: { name: "add", description: "Schedule a tool execution" },
+    args: {
+      at: { type: "string", description: "Human-readable time (e.g. '9:00 AM tomorrow')" },
+    },
+    async run({ args }) {
+      const { serverUrl, sessionToken } = await connect();
+      const http = createHttpClient(serverUrl, sessionToken);
+
+      // Parse: kon cron add [--at "time"] <schedule-or-tool> <tool> [args...]
+      // Raw argv after "cron add": find positional args (skip --at and its value)
+      const rawArgs = process.argv.slice(4); // skip: kon cron add
+      const positional: string[] = [];
+      let atValue = args.at as string | undefined;
+
+      for (let i = 0; i < rawArgs.length; i++) {
+        if (rawArgs[i] === "--at" && rawArgs[i + 1]) {
+          atValue = rawArgs[i + 1];
+          i++;
+        } else if (!rawArgs[i].startsWith("--")) {
+          positional.push(rawArgs[i]);
+        }
+      }
+
+      let schedule: string;
+      let tool: string;
+      let toolArgs: string[];
+      let oneShot = false;
+
+      if (atValue) {
+        // --at mode: all positional args are tool + args
+        tool = positional[0];
+        toolArgs = positional.slice(1);
+        // POST to server with at expression — server parses it
+        const res = await http.post<{ job: { id: string; schedule: string; nextRun?: number } }>("/cron", {
+          schedule: `@at ${atValue}`,
+          tool,
+          args: toolArgs,
+          oneShot: true,
+        });
+        console.log(`Scheduled: ${res.job.id}`);
+        console.log(`  ${tool} ${toolArgs.join(" ")}`);
+        if (res.job.nextRun) {
+          console.log(`  Next run: ${new Date(res.job.nextRun).toLocaleString()}`);
+        }
+        return;
+      }
+
+      // Standard cron mode: first positional is schedule, rest is tool + args
+      schedule = positional[0];
+      tool = positional[1];
+      toolArgs = positional.slice(2);
+
+      if (!schedule || !tool) {
+        console.error("Usage:");
+        console.error('  kon cron add "0 9 * * *" <tool> [args...]');
+        console.error('  kon cron add --at "9:00 AM tomorrow" <tool> [args...]');
+        process.exitCode = 1;
+        return;
+      }
+
+      const res = await http.post<{ job: { id: string; schedule: string; nextRun?: number } }>("/cron", {
+        schedule,
+        tool,
+        args: toolArgs,
+      });
+      console.log(`Scheduled: ${res.job.id}`);
+      console.log(`  ${schedule} — ${tool} ${toolArgs.join(" ")}`);
+      if (res.job.nextRun) {
+        console.log(`  Next run: ${new Date(res.job.nextRun).toLocaleString()}`);
+      }
+    },
+  });
+
+  const cronListCommand = defineCommand({
+    meta: { name: "list", description: "List scheduled jobs" },
+    async run() {
+      const { serverUrl, sessionToken } = await connect();
+      const http = createHttpClient(serverUrl, sessionToken);
+      const res = await http.get<{ jobs: Array<{
+        id: string; schedule: string; tool: string; args: string[];
+        enabled: boolean; lastRun?: number; nextRun?: number; description?: string;
+      }> }>("/cron");
+
+      if (res.jobs.length === 0) {
+        console.log("No scheduled jobs.");
+        return;
+      }
+
+      for (const job of res.jobs) {
+        const status = job.enabled ? "active" : "disabled";
+        const cmd = `${job.tool} ${job.args.join(" ")}`.trim();
+        const next = job.nextRun ? new Date(job.nextRun).toLocaleString() : "—";
+        const last = job.lastRun ? new Date(job.lastRun).toLocaleString() : "never";
+        console.log(`${job.id}  [${status}]  ${job.schedule}`);
+        console.log(`  ${cmd}`);
+        console.log(`  next: ${next}  last: ${last}`);
+        console.log();
+      }
+    },
+  });
+
+  const cronRemoveCommand = defineCommand({
+    meta: { name: "remove", description: "Remove a scheduled job" },
+    args: {
+      id: { type: "positional", description: "Job ID", required: true },
+    },
+    async run({ args }) {
+      const { serverUrl, sessionToken } = await connect();
+      const http = createHttpClient(serverUrl, sessionToken);
+      await http.delete(`/cron/${encodeURIComponent(args.id)}`);
+      console.log(`Removed: ${args.id}`);
+    },
+  });
+
+  const cronCommand = defineCommand({
+    meta: { name: "cron", description: "Manage scheduled tasks" },
+    subCommands: {
+      add: cronAddCommand,
+      list: cronListCommand,
+      remove: cronRemoveCommand,
+    },
+  });
+
   const main = defineCommand({
     meta: {
       name: "kon",
@@ -185,6 +309,7 @@ function runCitty() {
       download: downloadCommand,
       version: versionCommand,
       skill: skillCommand,
+      cron: cronCommand,
     },
   });
 
