@@ -78,6 +78,16 @@ In any new conversation, the skill handles setup automatically. Then just ask Cl
 
 Claude runs `kon read ...`, `kon bash git ...`, etc. behind the scenes.
 
+## Need help after setup?
+
+If you use [Claude Code](https://docs.anthropic.com/en/docs/claude-code), there's a plugin that can help you manage your gigai server — adding tools, configuring MCP servers, setting up cron jobs, troubleshooting connectivity, and more.
+
+```
+/plugin install https://github.com/Kaden-Schutt/kon
+```
+
+Then run `/kon:gigai-setup` in any conversation and Claude Code will walk you through it.
+
 ## How it works
 
 ```
