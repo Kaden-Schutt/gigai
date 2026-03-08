@@ -10,16 +10,28 @@ function getGigaiBin(): string {
   return process.argv[1] ?? "gigai";
 }
 
+function getNodeBin(): string {
+  return process.execPath;
+}
+
 function getLaunchdPlist(configPath: string): string {
+  const nodeBin = getNodeBin();
   const bin = getGigaiBin();
+  const currentPath = process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
   <string>com.gigai.server</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>${currentPath}</string>
+  </dict>
   <key>ProgramArguments</key>
   <array>
+    <string>${nodeBin}</string>
     <string>${bin}</string>
     <string>server</string>
     <string>start</string>
