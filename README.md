@@ -297,6 +297,6 @@ Mount your config at `/data/gigai.config.json`.
 
 MIT
 
-<p align="left">
+<p align="right">
   <img src="assets/kon-icon.png" alt="Kon" width="200" />
 </p>
