@@ -1,7 +1,8 @@
 {
   "name": "@schuttdev/gigai",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
+  "license": "MIT",
   "bin": {
     "gigai": "dist/index.js"
   },
@@ -12,7 +13,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -23,11 +25,11 @@
   "dependencies": {
     "citty": "^0.1.6",
     "zod": "^3.22.0",
-    "fastify": "^4.25.0",
-    "@fastify/cors": "^9.0.0",
-    "@fastify/rate-limit": "^9.0.0",
-    "@fastify/multipart": "^8.0.0",
-    "fastify-plugin": "^4.5.0",
+    "fastify": "^5.8.2",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/rate-limit": "^10.0.0",
+    "@fastify/multipart": "^9.0.0",
+    "fastify-plugin": "^5.0.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@inquirer/prompts": "^7.0.0",
     "nanoid": "^5.0.0"
