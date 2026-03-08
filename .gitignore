@@ -10,5 +10,6 @@ dist/
 coverage/
 tmp/
 gigai.config.json
+gigai.crons.json
 gigai-skill/
 *.zip
