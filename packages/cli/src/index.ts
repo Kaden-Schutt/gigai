@@ -8,6 +8,7 @@ import { fetchTools, fetchToolDetail } from "./discover.js";
 import { execTool, execMcpTool } from "./exec.js";
 import { upload, download } from "./transfer.js";
 import { formatToolList, formatToolDetail, formatStatus } from "./output.js";
+import { VERSION } from "./version.js";
 
 const mode = detectMode();
 
@@ -136,7 +137,7 @@ function runCitty() {
   const versionCommand = defineCommand({
     meta: { name: "version", description: "Show version" },
     run() {
-      console.log("gigai v0.1.0");
+      console.log(`gigai v${VERSION}`);
     },
   });
 
@@ -290,7 +291,7 @@ function runCitty() {
   const main = defineCommand({
     meta: {
       name: "gigai",
-      version: "0.1.0",
+      version: VERSION,
       description: "Bridge CLI tools to Claude across platforms",
     },
     subCommands: mode === "client"

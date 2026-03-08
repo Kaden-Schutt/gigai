@@ -11,6 +11,7 @@ import { healthRoutes } from "./routes/health.js";
 import { toolRoutes } from "./routes/tools.js";
 import { execRoutes } from "./routes/exec.js";
 import { transferRoutes } from "./routes/transfer.js";
+import { adminRoutes } from "./routes/admin.js";
 
 export interface ServerOptions {
   config: GigaiConfig;
@@ -54,6 +55,7 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
   await server.register(toolRoutes);
   await server.register(execRoutes);
   await server.register(transferRoutes);
+  await server.register(adminRoutes);
 
   // Global error handler
   server.setErrorHandler((error: Error, _request: FastifyRequest, reply: FastifyReply) => {
