@@ -1,6 +1,6 @@
 {
   "name": "@schuttdev/kon",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "type": "module",
   "license": "MIT",
   "description": "Lightweight kond client for Claude code execution",
