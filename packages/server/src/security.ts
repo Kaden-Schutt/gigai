@@ -1,8 +1,11 @@
 import { resolve } from "node:path";
-import { homedir } from "node:os";
+import { userInfo } from "node:os";
 import type { SecurityTier, SecurityConfig } from "@gigai/shared";
 
 export type { SecurityTier, SecurityConfig };
+
+/** Canonical home dir from passwd — immune to bad HOME env vars */
+const SERVER_HOME = userInfo().homedir;
 
 const DEFAULT_SECURITY: SecurityConfig = { default: "strict", overrides: {} };
 
@@ -134,7 +137,7 @@ export function validateCommandArgs(
   if (tier === "unrestricted") return { allowed: true };
 
   if (command === "rm" && hasRecursiveFlag(args)) {
-    const home = homedir();
+    const home = SERVER_HOME;
     for (const arg of args) {
       if (arg.startsWith("-")) continue;
       const resolved = resolve(arg);
@@ -186,7 +189,7 @@ export function canAccessPath(
       return { allowed: true };
     }
     case "standard": {
-      const home = homedir();
+      const home = SERVER_HOME;
       for (const blocked of STANDARD_BLOCKED_PATHS) {
         const full = resolve(home, blocked);
         if (resolvedPath === full || resolvedPath.startsWith(full + "/")) {
@@ -202,9 +205,16 @@ export function canAccessPath(
 
 // ── Path helpers ──
 
+/**
+ * Rewrite client paths to server-local paths.
+ * Handles ~ expansion and /root/ prefix from sandboxed clients
+ * (e.g. Claude Desktop runs with HOME=/root).
+ */
 export function expandTilde(p: string): string {
-  if (p === "~") return homedir();
-  if (p.startsWith("~/")) return homedir() + p.slice(1);
+  if (p === "~") return SERVER_HOME;
+  if (p.startsWith("~/")) return SERVER_HOME + p.slice(1);
+  if (p === "/root") return SERVER_HOME;
+  if (p.startsWith("/root/")) return SERVER_HOME + p.slice(5);
   return p;
 }
 
