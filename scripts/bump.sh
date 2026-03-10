@@ -37,7 +37,7 @@ done
 printf 'export const VERSION = "%s";\n' "$V" > packages/cli/src/version.ts
 echo "  updated packages/cli/src/version.ts"
 
-sed -i '' "s/const VERSION = \"[^\"]*\"/const VERSION = \"$V\"/" packages/server/src/routes/health.ts
+sed -i '' "s/export const VERSION = \"[^\"]*\"/export const VERSION = \"$V\"/" packages/server/src/routes/health.ts
 echo "  updated packages/server/src/routes/health.ts"
 
 # --- Commit, tag, push ---

@@ -431,7 +431,7 @@ const cronCommand = defineCommand({
     add: defineCommand({
       meta: {
         name: "add",
-        description: "Schedule a tool execution (e.g. kond cron add \"0 9 * * *\" bash git pull)",
+        description: "Schedule a tool execution (e.g. kond cron add \"0 9 * * *\" shell git pull)",
       },
       args: {
         at: { type: "string", description: "Human-readable time (e.g. \"9:00 AM tomorrow\", \"in 30 minutes\")" },

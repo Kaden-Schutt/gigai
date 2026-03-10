@@ -72,12 +72,12 @@ kon grep <pattern> [path] [--glob <filter>] [-i] [-n] [-C <num>]
 - Uses ripgrep if available, falls back to built-in search
 - Example: \`kon grep "TODO" ~/projects --glob "*.ts"\`
 
-### bash — Execute shell commands
+### shell — Execute commands
 \`\`\`bash
-kon bash <command> [args...]
+kon shell <command> [args...]
 \`\`\`
-- Execute shell commands on the user's machine
-- Example: \`kon bash git status\`
+- Run a command on the user's machine
+- Example: \`kon shell git status\`
 
 ### File transfer
 \`\`\`bash
@@ -102,8 +102,8 @@ kon <mcp-tool> <mcp-action> [json-args]
 
 Schedule any tool execution on the server:
 \`\`\`bash
-kon cron add "0 9 * * *" bash git pull              # daily at 9am
-kon cron add --at "9:00 AM tomorrow" bash git pull   # one-shot
+kon cron add "0 9 * * *" shell git pull              # daily at 9am
+kon cron add --at "9:00 AM tomorrow" shell git pull   # one-shot
 kon cron add --at "in 30 minutes" read ~/log.txt     # relative time
 kon cron list                                        # list scheduled jobs
 kon cron remove <id>                                 # remove a job
@@ -181,6 +181,13 @@ export function generateToolMarkdown(tool: ToolDetail): string {
   if (tool.type === "builtin") {
     // Builtin tools have specific usage patterns
     switch (tool.name) {
+      case "fs":
+        lines.push("```bash");
+        lines.push(`kon fs read <file>`);
+        lines.push(`kon fs list <path>`);
+        lines.push(`kon fs search <path> [pattern]`);
+        lines.push("```");
+        break;
       case "read":
         lines.push("```bash");
         lines.push("kon read <file> [offset] [limit]");
@@ -206,9 +213,9 @@ export function generateToolMarkdown(tool: ToolDetail): string {
         lines.push("kon grep <pattern> [path] [--glob <filter>] [-i] [-n] [-C <num>]");
         lines.push("```");
         break;
-      case "bash":
+      case "shell":
         lines.push("```bash");
-        lines.push("kon bash <command> [args...]");
+        lines.push("kon shell <command> [args...]");
         lines.push("```");
         break;
       default:

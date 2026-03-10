@@ -40,8 +40,8 @@ kond wrap script                              # Scripts (interactive)
 ### Cron / scheduled tasks
 
 ```bash
-kond cron add "0 9 * * *" bash git pull              # daily at 9am
-kond cron add --at "9:00 AM tomorrow" bash git pull   # one-shot
+kond cron add "0 9 * * *" shell git pull              # daily at 9am
+kond cron add --at "9:00 AM tomorrow" shell git pull   # one-shot
 kond cron add --at "in 30 minutes" read ~/log.txt     # relative time
 kond cron list                                        # list scheduled jobs
 kond cron remove <id>                                 # remove a job

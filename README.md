@@ -85,7 +85,7 @@ kond mcp add github -- npx -y @modelcontextprotocol/server-github
 **Schedule tasks** — run commands on a timer or at a specific time:
 
 ```bash
-kond cron add --at "9:00 AM tomorrow" bash git pull
+kond cron add --at "9:00 AM tomorrow" shell git pull
 ```
 
 The setup wizard can also auto-import MCP servers from your Claude Desktop config.
