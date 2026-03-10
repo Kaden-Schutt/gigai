@@ -4,7 +4,8 @@ import { getOrgUUID } from "./identity.js";
 import { createHttpClient } from "./http.js";
 import { connect } from "./connect.js";
 import { fetchTools, fetchToolDetail } from "./discover.js";
-import { generateSkillZip, writeSkillZip, hasExistingSkill } from "./skill.js";
+import { generateSkillZip, writeSkillZip } from "./skill.js";
+import { output, homePath } from "./output.js";
 
 export async function pair(code: string, serverUrl: string): Promise<void> {
   const orgUuid = getOrgUUID();
@@ -16,7 +17,6 @@ export async function pair(code: string, serverUrl: string): Promise<void> {
   });
 
   await addServer(res.serverName, serverUrl, res.encryptedToken);
-  console.log(`Paired with "${res.serverName}" successfully!`);
 
   // Connect to get a session, then fetch tool details for the skill zip
   let toolDetails: ToolDetail[] | undefined;
@@ -35,14 +35,8 @@ export async function pair(code: string, serverUrl: string): Promise<void> {
   }
 
   // Generate skill zip
-  const existing = await hasExistingSkill();
   const zip = await generateSkillZip(res.serverName, serverUrl, res.encryptedToken, toolDetails);
   const outPath = await writeSkillZip(zip);
 
-  console.log(`\nSkill zip written to: ${outPath}`);
-  if (existing) {
-    console.log("Skill file updated. Download and re-upload to Claude.");
-  } else {
-    console.log("Upload this file as a skill in Claude (Settings → Customize → Upload Skill).");
-  }
+  output({ server: res.serverName, skillPath: homePath(outPath) });
 }

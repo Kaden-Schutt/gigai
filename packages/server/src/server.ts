@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply }
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
-import { GigaiError, ErrorCode, type GigaiConfig } from "@gigai/shared";
+import { GigaiError, ErrorCode, type GigaiConfig, type SecurityConfig } from "@gigai/shared";
 import { authPlugin } from "./auth/plugin.js";
 import { registryPlugin } from "./registry/plugin.js";
 import { executorPlugin } from "./executor/plugin.js";
@@ -14,6 +14,12 @@ import { execRoutes } from "./routes/exec.js";
 import { transferRoutes } from "./routes/transfer.js";
 import { adminRoutes } from "./routes/admin.js";
 import { cronRoutes } from "./routes/cron.js";
+
+declare module "fastify" {
+  interface FastifyInstance {
+    securityConfig: SecurityConfig | undefined;
+  }
+}
 
 export interface ServerOptions {
   config: GigaiConfig;
@@ -52,6 +58,8 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
   await server.register(registryPlugin, { config });
   await server.register(executorPlugin);
   await server.register(mcpPlugin, { config });
+
+  server.decorate("securityConfig", config.security);
 
   // Register cron scheduler (needs configPath to find gigai.crons.json)
   if (configPath) {

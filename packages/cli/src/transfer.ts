@@ -3,6 +3,7 @@ import { basename } from "node:path";
 import { Blob } from "node:buffer";
 import type { UploadResponse } from "@gigai/shared";
 import type { HttpClient } from "./http.js";
+import { output, homePath } from "./output.js";
 
 export async function upload(
   http: HttpClient,
@@ -20,7 +21,7 @@ export async function upload(
     formData,
   );
 
-  console.log(`Uploaded: ${res.id}`);
+  output(res.id);
   return res.id;
 }
 
@@ -32,5 +33,5 @@ export async function download(
   const res = await http.getRaw(`/transfer/${encodeURIComponent(id)}`);
   const buffer = Buffer.from(await res.arrayBuffer());
   await writeFile(destPath, buffer);
-  console.log(`Downloaded to: ${destPath}`);
+  output(homePath(destPath));
 }

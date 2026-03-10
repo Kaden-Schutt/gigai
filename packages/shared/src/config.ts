@@ -79,11 +79,19 @@ export const ServerConfigSchema = z.object({
   https: HttpsConfigSchema.optional(),
 });
 
+export const SecurityTierSchema = z.enum(["strict", "standard", "unrestricted"]);
+
+export const SecurityConfigSchema = z.object({
+  default: SecurityTierSchema.default("strict"),
+  overrides: z.record(SecurityTierSchema).default({}),
+});
+
 export const GigaiConfigSchema = z.object({
   serverName: z.string().optional(),
   server: ServerConfigSchema,
   auth: AuthConfigSchema,
   tools: z.array(ToolConfigSchema).default([]),
+  security: SecurityConfigSchema.optional(),
 });
 
 export type HttpsConfig = z.infer<typeof HttpsConfigSchema>;
@@ -92,6 +100,8 @@ export type CliToolConfig = z.infer<typeof CliToolConfigSchema>;
 export type McpToolConfig = z.infer<typeof McpToolConfigSchema>;
 export type ScriptToolConfig = z.infer<typeof ScriptToolConfigSchema>;
 export type BuiltinToolConfig = z.infer<typeof BuiltinToolConfigSchema>;
+export type SecurityTier = z.infer<typeof SecurityTierSchema>;
+export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
 export type AuthConfig = z.infer<typeof AuthConfigSchema>;
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
 export type GigaiConfig = z.infer<typeof GigaiConfigSchema>;

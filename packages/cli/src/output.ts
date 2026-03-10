@@ -1,70 +1,43 @@
-import type { ToolSummary, ToolDetail } from "@gigai/shared";
-import type { ClientConfig } from "./config.js";
+import { homedir } from "node:os";
 
-export function formatToolList(tools: ToolSummary[]): string {
-  if (tools.length === 0) return "No tools registered.";
-
-  const maxName = Math.max(...tools.map((t) => t.name.length));
-  const maxType = Math.max(...tools.map((t) => t.type.length));
-
-  const lines = tools.map((t) => {
-    const name = t.name.padEnd(maxName);
-    const type = t.type.padEnd(maxType);
-    return `  ${name}  ${type}  ${t.description}`;
-  });
-
-  return `Available tools:\n${lines.join("\n")}`;
+export function output(value: string | object): void {
+  if (typeof value === "string") {
+    process.stdout.write(value + "\n");
+  } else {
+    process.stdout.write(JSON.stringify(value) + "\n");
+  }
 }
 
-export function formatToolDetail(detail: ToolDetail): string {
-  const lines: string[] = [];
-  lines.push(`${detail.name} (${detail.type})`);
-  lines.push(`  ${detail.description}`);
-
-  if (detail.usage) {
-    lines.push(`\nUsage: ${detail.usage}`);
-  }
-
-  if (detail.args?.length) {
-    lines.push("\nArguments:");
-    for (const arg of detail.args) {
-      const req = arg.required ? " (required)" : "";
-      const def = arg.default ? ` [default: ${arg.default}]` : "";
-      lines.push(`  ${arg.name}${req}${def} — ${arg.description}`);
-    }
-  }
-
-  if (detail.mcpTools?.length) {
-    lines.push("\nMCP Tools:");
-    for (const t of detail.mcpTools) {
-      lines.push(`  ${t.name} — ${t.description}`);
-    }
-  }
-
-  return lines.join("\n");
+export function outputError(code: string, message: string): void {
+  process.stdout.write(JSON.stringify({ error: code, message }) + "\n");
+  process.exitCode = 1;
 }
 
-export function formatStatus(config: ClientConfig): string {
-  const serverNames = Object.keys(config.servers);
-  if (serverNames.length === 0) {
-    return "Not connected. Run 'gigai pair <code> <server-url>' to set up.";
-  }
+export function homePath(absolute: string): string {
+  const home = homedir();
+  if (absolute === home) return "~";
+  if (absolute.startsWith(home + "/")) return "~/" + absolute.slice(home.length + 1);
+  return absolute;
+}
 
-  const lines: string[] = [];
-  for (const name of serverNames) {
-    const entry = config.servers[name];
-    const active = name === config.activeServer ? " (active)" : "";
-    const platformTag = entry.platform ? ` [${entry.platform}]` : "";
-    lines.push(`  ${name}${active}${platformTag}  ${entry.server}`);
-    if (entry.sessionExpiresAt) {
-      const remaining = entry.sessionExpiresAt - Date.now();
-      if (remaining > 0) {
-        lines.push(`    Session expires in ${Math.floor(remaining / 60_000)} minutes`);
-      } else {
-        lines.push("    Session expired — will auto-renew on next command");
-      }
-    }
-  }
+export function expandHome(path: string): string {
+  if (path === "~") return homedir();
+  if (path.startsWith("~/")) return homedir() + path.slice(1);
+  return path;
+}
 
-  return `Servers:\n${lines.join("\n")}`;
+export function classifyError(err: unknown): string {
+  if (err instanceof Error && "statusCode" in err) {
+    const status = (err as any).statusCode as number;
+    const serverCode = (err as any).errorCode as string | undefined;
+    if (serverCode) return serverCode;
+    if (status === 401) return "AUTH_EXPIRED";
+    if (status === 403) return "FORBIDDEN";
+    if (status === 404) return "NOT_FOUND";
+    if (status === 429) return "RATE_LIMITED";
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|fetch failed/i.test(msg)) return "SERVER_UNAVAILABLE";
+  if (/pair|auth/i.test(msg)) return "AUTH_FAILED";
+  return "ERROR";
 }

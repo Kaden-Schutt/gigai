@@ -114,17 +114,12 @@ async function checkAndUpdateServer(
     }
 
     if (isNewer(VERSION, health.version)) {
-      console.log(`Server is outdated (${health.version} → ${VERSION}). Updating...`);
-
       const authedHttp = createHttpClient(serverUrl, sessionToken);
       const res = await authedHttp.post<{ updated: boolean; restarting?: boolean; error?: string }>("/admin/update");
 
       if (res.updated) {
-        console.log("Server updated and restarting.");
         await waitForServer(serverUrl, 15_000);
-        console.log("Server is back online.");
 
-        // Server restarted — old session is gone, get a new one
         if (serverName && encryptedToken) {
           const orgUuid = getOrgUUID();
           const unauthHttp = createHttpClient(serverUrl);
@@ -135,8 +130,6 @@ async function checkAndUpdateServer(
           await updateServerSession(serverName, connectRes.sessionToken, connectRes.expiresAt);
           return connectRes.sessionToken;
         }
-      } else {
-        console.log(`Server update failed: ${res.error ?? "unknown error"}`);
       }
     }
   } catch {

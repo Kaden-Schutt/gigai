@@ -5,7 +5,7 @@ import { pair } from "../../cli/src/pair.js";
 import { fetchTools, fetchToolDetail } from "../../cli/src/discover.js";
 import { execTool, execMcpTool } from "../../cli/src/exec.js";
 import { upload, download } from "../../cli/src/transfer.js";
-import { formatToolList, formatToolDetail, formatStatus } from "../../cli/src/output.js";
+import { output, outputError, homePath, expandHome, classifyError } from "../../cli/src/output.js";
 import { generateSkillZip, writeSkillZip } from "../../cli/src/skill.js";
 import { VERSION } from "../../cli/src/version.js";
 import type { ToolDetail } from "@gigai/shared";
@@ -19,7 +19,7 @@ const KNOWN_COMMANDS = new Set([
 const firstArg = process.argv[2];
 if (firstArg && !firstArg.startsWith("-") && !KNOWN_COMMANDS.has(firstArg)) {
   const toolName = firstArg;
-  const toolArgs = process.argv.slice(3);
+  const toolArgs = process.argv.slice(3).map(a => expandHome(a));
 
   try {
     const { http } = await connect();
@@ -28,8 +28,7 @@ if (firstArg && !firstArg.startsWith("-") && !KNOWN_COMMANDS.has(firstArg)) {
     if (detail.type === "mcp") {
       const mcpToolName = toolArgs[0];
       if (!mcpToolName) {
-        const toolNames = (detail.mcpTools ?? []).map(t => `  ${t.name} — ${t.description}`);
-        console.log(`MCP tools for ${toolName}:\n${toolNames.join("\n")}`);
+        output((detail.mcpTools ?? []).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })));
       } else {
         const jsonArg = toolArgs.slice(1).join(" ");
         const args = jsonArg ? JSON.parse(jsonArg) : {};
@@ -39,8 +38,7 @@ if (firstArg && !firstArg.startsWith("-") && !KNOWN_COMMANDS.has(firstArg)) {
       await execTool(http, toolName, toolArgs);
     }
   } catch (e) {
-    console.error(`Error: ${(e as Error).message}`);
-    process.exitCode = 1;
+    outputError(classifyError(e), (e as Error).message);
   }
 } else {
   runCitty();
@@ -54,7 +52,11 @@ function runCitty() {
       server: { type: "positional", description: "Server URL", required: true },
     },
     async run({ args }) {
-      await pair(args.code, args.server);
+      try {
+        await pair(args.code as string, args.server as string);
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
+      }
     },
   });
 
@@ -64,17 +66,25 @@ function runCitty() {
       name: { type: "positional", description: "Server name (optional)", required: false },
     },
     async run({ args }) {
-      const { serverUrl } = await connect(args.name as string | undefined);
-      console.log(`Connected to ${serverUrl}`);
+      try {
+        const { serverUrl } = await connect(args.name as string | undefined);
+        output(serverUrl);
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
+      }
     },
   });
 
   const listCommand = defineCommand({
     meta: { name: "list", description: "List available tools" },
     async run() {
-      const { http } = await connect();
-      const tools = await fetchTools(http);
-      console.log(formatToolList(tools));
+      try {
+        const { http } = await connect();
+        const tools = await fetchTools(http);
+        output(tools);
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
+      }
     },
   });
 
@@ -84,17 +94,33 @@ function runCitty() {
       tool: { type: "positional", description: "Tool name", required: true },
     },
     async run({ args }) {
-      const { http } = await connect();
-      const { tool } = await fetchToolDetail(http, args.tool);
-      console.log(formatToolDetail(tool));
+      try {
+        const { http } = await connect();
+        const { tool } = await fetchToolDetail(http, args.tool);
+        output(tool);
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
+      }
     },
   });
 
   const statusCommand = defineCommand({
     meta: { name: "status", description: "Show connection status" },
     async run() {
-      const config = await readConfig();
-      console.log(formatStatus(config));
+      try {
+        const config = await readConfig();
+        const servers = Object.entries(config.servers).map(([name, entry]) => ({
+          name,
+          active: name === config.activeServer,
+          url: entry.server,
+          platform: entry.platform ?? undefined,
+          hostname: entry.hostname ?? undefined,
+          sessionExpiresAt: entry.sessionExpiresAt ?? undefined,
+        }));
+        output(servers);
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
+      }
     },
   });
 
@@ -104,8 +130,12 @@ function runCitty() {
       file: { type: "positional", description: "File path", required: true },
     },
     async run({ args }) {
-      const { http } = await connect();
-      await upload(http, args.file);
+      try {
+        const { http } = await connect();
+        await upload(http, expandHome(args.file as string));
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
+      }
     },
   });
 
@@ -116,48 +146,50 @@ function runCitty() {
       dest: { type: "positional", description: "Destination path", required: true },
     },
     async run({ args }) {
-      const { http } = await connect();
-      await download(http, args.id, args.dest);
+      try {
+        const { http } = await connect();
+        await download(http, args.id as string, expandHome(args.dest as string));
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
+      }
     },
   });
 
   const versionCommand = defineCommand({
     meta: { name: "version", description: "Show version" },
     run() {
-      console.log(`kon v${VERSION}`);
+      output(VERSION);
     },
   });
 
   const skillCommand = defineCommand({
     meta: { name: "skill", description: "Regenerate the skill zip with current tool details" },
     async run() {
-      const { http } = await connect();
+      try {
+        const { http } = await connect();
 
-      // Fetch all tools and their details
-      const tools = await fetchTools(http);
-      console.log(`Fetching details for ${tools.length} tool(s)...`);
+        const tools = await fetchTools(http);
+        const toolDetails: ToolDetail[] = await Promise.all(
+          tools.map(async (t) => {
+            const { tool } = await fetchToolDetail(http, t.name);
+            return tool;
+          }),
+        );
 
-      const toolDetails: ToolDetail[] = await Promise.all(
-        tools.map(async (t) => {
-          const { tool } = await fetchToolDetail(http, t.name);
-          return tool;
-        }),
-      );
+        const config = await readConfig();
+        const activeServer = config.activeServer;
+        if (!activeServer || !config.servers[activeServer]) {
+          throw new Error("No active server. Run 'kon connect' first.");
+        }
+        const entry = config.servers[activeServer];
 
-      // Read current config to get server info
-      const config = await readConfig();
-      const activeServer = config.activeServer;
-      if (!activeServer || !config.servers[activeServer]) {
-        throw new Error("No active server. Run 'kon connect' first.");
+        const zip = await generateSkillZip(activeServer, entry.server, entry.token, toolDetails);
+        const outPath = await writeSkillZip(zip);
+
+        output({ skillPath: homePath(outPath), toolCount: toolDetails.length });
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
       }
-      const entry = config.servers[activeServer];
-
-      const zip = await generateSkillZip(activeServer, entry.server, entry.token, toolDetails);
-      const outPath = await writeSkillZip(zip);
-
-      console.log(`\nSkill zip written to: ${outPath}`);
-      console.log(`Included ${toolDetails.length} tool documentation file(s).`);
-      console.log("Upload this file as a skill in Claude (Settings → Customize → Upload Skill).");
     },
   });
 
@@ -167,69 +199,52 @@ function runCitty() {
       at: { type: "string", description: "Human-readable time (e.g. '9:00 AM tomorrow')" },
     },
     async run({ args }) {
-      const { http } = await connect();
+      try {
+        const { http } = await connect();
 
-      // Parse: kon cron add [--at "time"] <schedule-or-tool> <tool> [args...]
-      // Raw argv after "cron add": find positional args (skip --at and its value)
-      const rawArgs = process.argv.slice(4); // skip: kon cron add
-      const positional: string[] = [];
-      let atValue = args.at as string | undefined;
+        const rawArgs = process.argv.slice(4);
+        const positional: string[] = [];
+        let atValue = args.at as string | undefined;
 
-      for (let i = 0; i < rawArgs.length; i++) {
-        if (rawArgs[i] === "--at" && rawArgs[i + 1]) {
-          atValue = rawArgs[i + 1];
-          i++;
-        } else if (!rawArgs[i].startsWith("--")) {
-          positional.push(rawArgs[i]);
+        for (let i = 0; i < rawArgs.length; i++) {
+          if (rawArgs[i] === "--at" && rawArgs[i + 1]) {
+            atValue = rawArgs[i + 1];
+            i++;
+          } else if (!rawArgs[i].startsWith("--")) {
+            positional.push(rawArgs[i]);
+          }
         }
-      }
 
-      let schedule: string;
-      let tool: string;
-      let toolArgs: string[];
-      let oneShot = false;
+        if (atValue) {
+          const tool = positional[0];
+          const toolArgs = positional.slice(1);
+          const res = await http.post<{ job: { id: string; schedule: string; nextRun?: number } }>("/cron", {
+            schedule: `@at ${atValue}`,
+            tool,
+            args: toolArgs,
+            oneShot: true,
+          });
+          output({ id: res.job.id, nextRun: res.job.nextRun ? new Date(res.job.nextRun).toISOString() : null });
+          return;
+        }
 
-      if (atValue) {
-        // --at mode: all positional args are tool + args
-        tool = positional[0];
-        toolArgs = positional.slice(1);
-        // POST to server with at expression — server parses it
+        const schedule = positional[0];
+        const tool = positional[1];
+        const toolArgs = positional.slice(2);
+
+        if (!schedule || !tool) {
+          outputError("INVALID_ARGS", 'Usage: kon cron add "0 9 * * *" <tool> [args...] OR kon cron add --at "time" <tool> [args...]');
+          return;
+        }
+
         const res = await http.post<{ job: { id: string; schedule: string; nextRun?: number } }>("/cron", {
-          schedule: `@at ${atValue}`,
+          schedule,
           tool,
           args: toolArgs,
-          oneShot: true,
         });
-        console.log(`Scheduled: ${res.job.id}`);
-        console.log(`  ${tool} ${toolArgs.join(" ")}`);
-        if (res.job.nextRun) {
-          console.log(`  Next run: ${new Date(res.job.nextRun).toLocaleString()}`);
-        }
-        return;
-      }
-
-      // Standard cron mode: first positional is schedule, rest is tool + args
-      schedule = positional[0];
-      tool = positional[1];
-      toolArgs = positional.slice(2);
-
-      if (!schedule || !tool) {
-        console.error("Usage:");
-        console.error('  kon cron add "0 9 * * *" <tool> [args...]');
-        console.error('  kon cron add --at "9:00 AM tomorrow" <tool> [args...]');
-        process.exitCode = 1;
-        return;
-      }
-
-      const res = await http.post<{ job: { id: string; schedule: string; nextRun?: number } }>("/cron", {
-        schedule,
-        tool,
-        args: toolArgs,
-      });
-      console.log(`Scheduled: ${res.job.id}`);
-      console.log(`  ${schedule} — ${tool} ${toolArgs.join(" ")}`);
-      if (res.job.nextRun) {
-        console.log(`  Next run: ${new Date(res.job.nextRun).toLocaleString()}`);
+        output({ id: res.job.id, nextRun: res.job.nextRun ? new Date(res.job.nextRun).toISOString() : null });
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
       }
     },
   });
@@ -237,26 +252,21 @@ function runCitty() {
   const cronListCommand = defineCommand({
     meta: { name: "list", description: "List scheduled jobs" },
     async run() {
-      const { http } = await connect();
-      const res = await http.get<{ jobs: Array<{
-        id: string; schedule: string; tool: string; args: string[];
-        enabled: boolean; lastRun?: number; nextRun?: number; description?: string;
-      }> }>("/cron");
+      try {
+        const { http } = await connect();
+        const res = await http.get<{ jobs: Array<{
+          id: string; schedule: string; tool: string; args: string[];
+          enabled: boolean; lastRun?: number; nextRun?: number; description?: string;
+        }> }>("/cron");
 
-      if (res.jobs.length === 0) {
-        console.log("No scheduled jobs.");
-        return;
-      }
-
-      for (const job of res.jobs) {
-        const status = job.enabled ? "active" : "disabled";
-        const cmd = `${job.tool} ${job.args.join(" ")}`.trim();
-        const next = job.nextRun ? new Date(job.nextRun).toLocaleString() : "—";
-        const last = job.lastRun ? new Date(job.lastRun).toLocaleString() : "never";
-        console.log(`${job.id}  [${status}]  ${job.schedule}`);
-        console.log(`  ${cmd}`);
-        console.log(`  next: ${next}  last: ${last}`);
-        console.log();
+        output(res.jobs.length === 0 ? [] : res.jobs.map(job => ({
+          id: job.id, schedule: job.schedule, tool: job.tool, args: job.args,
+          enabled: job.enabled,
+          nextRun: job.nextRun ? new Date(job.nextRun).toISOString() : null,
+          lastRun: job.lastRun ? new Date(job.lastRun).toISOString() : null,
+        })));
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
       }
     },
   });
@@ -267,9 +277,13 @@ function runCitty() {
       id: { type: "positional", description: "Job ID", required: true },
     },
     async run({ args }) {
-      const { http } = await connect();
-      await http.delete(`/cron/${encodeURIComponent(args.id)}`);
-      console.log(`Removed: ${args.id}`);
+      try {
+        const { http } = await connect();
+        await http.delete(`/cron/${encodeURIComponent(args.id)}`);
+        output(args.id as string);
+      } catch (e) {
+        outputError(classifyError(e), (e as Error).message);
+      }
     },
   });
 

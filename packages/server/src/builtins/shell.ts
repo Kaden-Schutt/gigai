@@ -1,15 +1,11 @@
 import { spawn } from "node:child_process";
 import { GigaiError, ErrorCode } from "@gigai/shared";
+import { canExecuteCommand, canUseSudo, type SecurityTier } from "../security.js";
 
 export interface ShellConfig {
-  allowlist: string[];
-  allowSudo: boolean;
+  allowlist?: string[];
+  allowSudo?: boolean;
 }
-
-const SHELL_INTERPRETERS = new Set([
-  "sh", "bash", "zsh", "fish", "csh", "tcsh", "dash", "ksh",
-  "env", "xargs", "nohup", "strace", "ltrace",
-]);
 
 const MAX_OUTPUT_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -17,23 +13,20 @@ export async function execCommandSafe(
   command: string,
   args: string[],
   config: ShellConfig,
+  tier: SecurityTier = "strict",
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  if (!config.allowlist.includes(command)) {
-    throw new GigaiError(
-      ErrorCode.COMMAND_NOT_ALLOWED,
-      `Command not in allowlist: ${command}. Allowed: ${config.allowlist.join(", ")}`,
-    );
+  // Sudo check (applies to all tiers)
+  if (command === "sudo") {
+    const sudoCheck = canUseSudo(config.allowSudo);
+    if (!sudoCheck.allowed) {
+      throw new GigaiError(ErrorCode.COMMAND_NOT_ALLOWED, sudoCheck.reason!);
+    }
   }
 
-  if (command === "sudo" && !config.allowSudo) {
-    throw new GigaiError(ErrorCode.COMMAND_NOT_ALLOWED, "sudo is not allowed");
-  }
-
-  if (SHELL_INTERPRETERS.has(command)) {
-    throw new GigaiError(
-      ErrorCode.COMMAND_NOT_ALLOWED,
-      `Shell interpreter not allowed: ${command}`,
-    );
+  // Command check (tier-aware)
+  const check = canExecuteCommand(tier, command, config.allowlist);
+  if (!check.allowed) {
+    throw new GigaiError(ErrorCode.COMMAND_NOT_ALLOWED, check.reason!);
   }
 
   for (const arg of args) {
@@ -43,7 +36,7 @@ export async function execCommandSafe(
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawn(command, ["--", ...args], {
+    const child = spawn(command, args, {
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });

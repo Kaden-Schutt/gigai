@@ -8,11 +8,16 @@ import { resolve, relative, join, basename } from "node:path";
 import { realpath } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { GigaiError, ErrorCode } from "@gigai/shared";
+import { canAccessPath, type SecurityTier } from "../security.js";
 
 const MAX_OUTPUT_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_READ_SIZE = 2 * 1024 * 1024; // 2MB
 
-export async function validatePath(targetPath: string, allowedPaths: string[]): Promise<string> {
+export async function validatePath(
+  targetPath: string,
+  allowedPaths: string[],
+  tier: SecurityTier = "strict",
+): Promise<string> {
   const resolved = resolve(targetPath);
   let real: string;
   try {
@@ -22,17 +27,9 @@ export async function validatePath(targetPath: string, allowedPaths: string[]): 
     real = resolved;
   }
 
-  const isAllowed = allowedPaths.some((allowed) => {
-    const resolvedAllowed = resolve(allowed);
-    const allowedPrefix = resolvedAllowed.endsWith("/") ? resolvedAllowed : resolvedAllowed + "/";
-    return real === resolvedAllowed || real.startsWith(allowedPrefix);
-  });
-
-  if (!isAllowed) {
-    throw new GigaiError(
-      ErrorCode.PATH_NOT_ALLOWED,
-      `Path not within allowed directories: ${targetPath}`,
-    );
+  const check = canAccessPath(tier, real, allowedPaths);
+  if (!check.allowed) {
+    throw new GigaiError(ErrorCode.PATH_NOT_ALLOWED, check.reason!);
   }
 
   return real;
@@ -43,16 +40,18 @@ export async function validatePath(targetPath: string, allowedPaths: string[]): 
 export async function readFileSafe(
   path: string,
   allowedPaths: string[],
+  tier: SecurityTier = "strict",
 ): Promise<string> {
-  const safePath = await validatePath(path, allowedPaths);
+  const safePath = await validatePath(path, allowedPaths, tier);
   return fsReadFile(safePath, "utf8");
 }
 
 export async function listDirSafe(
   path: string,
   allowedPaths: string[],
+  tier: SecurityTier = "strict",
 ): Promise<Array<{ name: string; type: "file" | "directory" }>> {
-  const safePath = await validatePath(path, allowedPaths);
+  const safePath = await validatePath(path, allowedPaths, tier);
   const entries = await readdir(safePath, { withFileTypes: true });
   return entries.map((e) => ({
     name: e.name,
@@ -64,8 +63,9 @@ export async function searchFilesSafe(
   path: string,
   pattern: string,
   allowedPaths: string[],
+  tier: SecurityTier = "strict",
 ): Promise<string[]> {
-  const safePath = await validatePath(path, allowedPaths);
+  const safePath = await validatePath(path, allowedPaths, tier);
   const results: string[] = [];
   let regex: RegExp;
   try {
@@ -100,13 +100,14 @@ export async function searchFilesSafe(
 export async function readBuiltin(
   args: string[],
   allowedPaths: string[],
+  tier: SecurityTier = "strict",
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const filePath = args[0];
   if (!filePath) {
     throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: read <file> [offset] [limit]");
   }
 
-  const safePath = await validatePath(filePath, allowedPaths);
+  const safePath = await validatePath(filePath, allowedPaths, tier);
   const content = await fsReadFile(safePath, "utf8");
 
   if (content.length > MAX_READ_SIZE) {
@@ -137,6 +138,7 @@ export async function readBuiltin(
 export async function writeBuiltin(
   args: string[],
   allowedPaths: string[],
+  tier: SecurityTier = "strict",
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const filePath = args[0];
   const content = args[1];
@@ -144,7 +146,7 @@ export async function writeBuiltin(
     throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: write <file> <content>");
   }
 
-  const safePath = await validatePath(filePath, allowedPaths);
+  const safePath = await validatePath(filePath, allowedPaths, tier);
 
   // Ensure parent directory exists
   const { mkdir } = await import("node:fs/promises");
@@ -162,6 +164,7 @@ export async function writeBuiltin(
 export async function editBuiltin(
   args: string[],
   allowedPaths: string[],
+  tier: SecurityTier = "strict",
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const filePath = args[0];
   const oldStr = args[1];
@@ -172,7 +175,7 @@ export async function editBuiltin(
     throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: edit <file> <old_string> <new_string> [--all]");
   }
 
-  const safePath = await validatePath(filePath, allowedPaths);
+  const safePath = await validatePath(filePath, allowedPaths, tier);
   const content = await fsReadFile(safePath, "utf8");
 
   if (!content.includes(oldStr)) {
@@ -212,6 +215,7 @@ export async function editBuiltin(
 export async function globBuiltin(
   args: string[],
   allowedPaths: string[],
+  tier: SecurityTier = "strict",
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const pattern = args[0];
   if (!pattern) {
@@ -219,7 +223,7 @@ export async function globBuiltin(
   }
 
   const searchPath = args[1] ?? ".";
-  const safePath = await validatePath(searchPath, allowedPaths);
+  const safePath = await validatePath(searchPath, allowedPaths, tier);
 
   // Walk and match against glob-like pattern
   const results: string[] = [];
@@ -259,6 +263,7 @@ export async function globBuiltin(
 export async function grepBuiltin(
   args: string[],
   allowedPaths: string[],
+  tier: SecurityTier = "strict",
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   if (args.length === 0) {
     throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: grep <pattern> [path] [--glob <filter>] [-i] [-n] [-C <num>]");
@@ -293,7 +298,7 @@ export async function grepBuiltin(
     throw new GigaiError(ErrorCode.VALIDATION_ERROR, "No search pattern provided");
   }
   const searchPath = positional[1] ?? ".";
-  const safePath = await validatePath(searchPath, allowedPaths);
+  const safePath = await validatePath(searchPath, allowedPaths, tier);
 
   // Try ripgrep first, fall back to JS grep
   try {

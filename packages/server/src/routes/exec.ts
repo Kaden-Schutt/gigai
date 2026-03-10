@@ -7,6 +7,7 @@ import {
   globBuiltin, grepBuiltin,
 } from "../builtins/filesystem.js";
 import { execCommandSafe } from "../builtins/shell.js";
+import { getEffectiveTier, type SecurityTier } from "../security.js";
 
 export async function execRoutes(server: FastifyInstance) {
   server.post<{ Body: ExecRequest }>("/exec", {
@@ -27,14 +28,15 @@ export async function execRoutes(server: FastifyInstance) {
   }, async (request) => {
     const { tool, args, timeout } = request.body;
     const entry = server.registry.get(tool);
+    const tier = getEffectiveTier(server.securityConfig, tool);
 
     // Handle builtins
     if (entry.type === "builtin") {
-      return handleBuiltin(entry.config, args);
+      return handleBuiltin(entry.config, args, tier);
     }
 
     // Execute CLI/script tools
-    const result = await server.executor.execute(entry, args, timeout);
+    const result = await server.executor.execute(entry, args, timeout, tier);
     return result;
   });
 
@@ -76,23 +78,24 @@ export async function execRoutes(server: FastifyInstance) {
 async function handleBuiltin(
   config: { builtin: string; config?: Record<string, unknown> },
   args: string[],
+  tier: SecurityTier,
 ) {
   const builtinConfig = config.config ?? {};
 
   switch (config.builtin) {
     // Legacy combined filesystem tool
     case "filesystem": {
-      const allowedPaths = (builtinConfig.allowedPaths as string[]) ?? ["."];
+      const allowedPaths = builtinConfig.allowedPaths as string[] | undefined;
       const subcommand = args[0];
       const target = args[1] ?? ".";
 
       switch (subcommand) {
         case "read":
-          return { stdout: await readFileSafe(target, allowedPaths), stderr: "", exitCode: 0, durationMs: 0 };
+          return { stdout: await readFileSafe(target, allowedPaths ?? [], tier), stderr: "", exitCode: 0, durationMs: 0 };
         case "list":
-          return { stdout: JSON.stringify(await listDirSafe(target, allowedPaths), null, 2), stderr: "", exitCode: 0, durationMs: 0 };
+          return { stdout: JSON.stringify(await listDirSafe(target, allowedPaths ?? [], tier), null, 2), stderr: "", exitCode: 0, durationMs: 0 };
         case "search":
-          return { stdout: JSON.stringify(await searchFilesSafe(target, args[2] ?? ".*", allowedPaths), null, 2), stderr: "", exitCode: 0, durationMs: 0 };
+          return { stdout: JSON.stringify(await searchFilesSafe(target, args[2] ?? ".*", allowedPaths ?? [], tier), null, 2), stderr: "", exitCode: 0, durationMs: 0 };
         default:
           throw new GigaiError(ErrorCode.VALIDATION_ERROR, `Unknown filesystem subcommand: ${subcommand}. Use: read, list, search`);
       }
@@ -100,51 +103,51 @@ async function handleBuiltin(
 
     // Legacy shell tool
     case "shell": {
-      const allowlist = (builtinConfig.allowlist as string[]) ?? [];
-      const allowSudo = (builtinConfig.allowSudo as boolean) ?? false;
+      const allowlist = builtinConfig.allowlist as string[] | undefined;
+      const allowSudo = builtinConfig.allowSudo as boolean | undefined;
       const command = args[0];
       if (!command) {
         throw new GigaiError(ErrorCode.VALIDATION_ERROR, "No command specified");
       }
-      const result = await execCommandSafe(command, args.slice(1), { allowlist, allowSudo });
+      const result = await execCommandSafe(command, args.slice(1), { allowlist, allowSudo }, tier);
       return { ...result, durationMs: 0 };
     }
 
     // --- New builtins ---
 
     case "read": {
-      const allowedPaths = (builtinConfig.allowedPaths as string[]) ?? ["."];
-      return { ...await readBuiltin(args, allowedPaths), durationMs: 0 };
+      const allowedPaths = builtinConfig.allowedPaths as string[] | undefined;
+      return { ...await readBuiltin(args, allowedPaths ?? [], tier), durationMs: 0 };
     }
 
     case "write": {
-      const allowedPaths = (builtinConfig.allowedPaths as string[]) ?? ["."];
-      return { ...await writeBuiltin(args, allowedPaths), durationMs: 0 };
+      const allowedPaths = builtinConfig.allowedPaths as string[] | undefined;
+      return { ...await writeBuiltin(args, allowedPaths ?? [], tier), durationMs: 0 };
     }
 
     case "edit": {
-      const allowedPaths = (builtinConfig.allowedPaths as string[]) ?? ["."];
-      return { ...await editBuiltin(args, allowedPaths), durationMs: 0 };
+      const allowedPaths = builtinConfig.allowedPaths as string[] | undefined;
+      return { ...await editBuiltin(args, allowedPaths ?? [], tier), durationMs: 0 };
     }
 
     case "glob": {
-      const allowedPaths = (builtinConfig.allowedPaths as string[]) ?? ["."];
-      return { ...await globBuiltin(args, allowedPaths), durationMs: 0 };
+      const allowedPaths = builtinConfig.allowedPaths as string[] | undefined;
+      return { ...await globBuiltin(args, allowedPaths ?? [], tier), durationMs: 0 };
     }
 
     case "grep": {
-      const allowedPaths = (builtinConfig.allowedPaths as string[]) ?? ["."];
-      return { ...await grepBuiltin(args, allowedPaths), durationMs: 0 };
+      const allowedPaths = builtinConfig.allowedPaths as string[] | undefined;
+      return { ...await grepBuiltin(args, allowedPaths ?? [], tier), durationMs: 0 };
     }
 
     case "bash": {
-      const allowlist = (builtinConfig.allowlist as string[]) ?? [];
-      const allowSudo = (builtinConfig.allowSudo as boolean) ?? false;
+      const allowlist = builtinConfig.allowlist as string[] | undefined;
+      const allowSudo = builtinConfig.allowSudo as boolean | undefined;
       const command = args[0];
       if (!command) {
         throw new GigaiError(ErrorCode.VALIDATION_ERROR, "No command specified");
       }
-      const result = await execCommandSafe(command, args.slice(1), { allowlist, allowSudo });
+      const result = await execCommandSafe(command, args.slice(1), { allowlist, allowSudo }, tier);
       return { ...result, durationMs: 0 };
     }
 

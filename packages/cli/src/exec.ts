@@ -1,5 +1,6 @@
 import type { ExecResponse, ExecMcpResponse } from "@gigai/shared";
 import type { HttpClient } from "./http.js";
+import { output, outputError } from "./output.js";
 
 export async function execTool(
   http: HttpClient,
@@ -13,9 +14,19 @@ export async function execTool(
     timeout,
   });
 
-  if (res.stdout) process.stdout.write(res.stdout);
-  if (res.stderr) process.stderr.write(res.stderr);
-  process.exitCode = res.exitCode;
+  if (res.exitCode === 0) {
+    if (res.stdout) process.stdout.write(res.stdout);
+  } else {
+    const err: Record<string, unknown> = {
+      error: "EXEC_FAILED",
+      message: res.stderr?.trim() || `Exited with code ${res.exitCode}`,
+      exitCode: res.exitCode,
+    };
+    if (res.stdout) err.stdout = res.stdout;
+    if (res.stderr) err.stderr = res.stderr;
+    output(err);
+    process.exitCode = 1;
+  }
 }
 
 export async function execMcpTool(
@@ -30,17 +41,22 @@ export async function execMcpTool(
     args,
   });
 
+  if (res.isError) {
+    const errorText = res.content
+      .filter(c => c.type === "text" && c.text)
+      .map(c => c.text)
+      .join("\n");
+    outputError("EXEC_FAILED", errorText || "MCP tool execution failed");
+    return;
+  }
+
   for (const content of res.content) {
     if (content.type === "text" && content.text) {
       process.stdout.write(content.text + "\n");
     } else if (content.type === "image") {
-      console.log(`[Image: ${content.mimeType}]`);
+      output({ type: "image", mimeType: content.mimeType });
     } else if (content.type === "resource") {
-      console.log(`[Resource: ${content.mimeType}]`);
+      output({ type: "resource", mimeType: content.mimeType });
     }
-  }
-
-  if (res.isError) {
-    process.exitCode = 1;
   }
 }

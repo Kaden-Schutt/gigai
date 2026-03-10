@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { GigaiError, ErrorCode } from "@gigai/shared";
 import type { RegistryEntry } from "../registry/types.js";
 import { sanitizeArgs } from "./sanitize.js";
+import { shouldInjectSeparator, type SecurityTier } from "../security.js";
 
 export interface ExecResult {
   stdout: string;
@@ -18,6 +19,7 @@ export function executeTool(
   entry: RegistryEntry,
   args: string[],
   timeout?: number,
+  tier: SecurityTier = "strict",
 ): Promise<ExecResult> {
   const sanitized = sanitizeArgs(args);
   const effectiveTimeout = timeout ?? DEFAULT_TIMEOUT;
@@ -30,7 +32,11 @@ export function executeTool(
   switch (entry.type) {
     case "cli":
       command = entry.config.command;
-      spawnArgs = [...(entry.config.args ?? []), "--", ...sanitized];
+      spawnArgs = [...(entry.config.args ?? [])];
+      if (shouldInjectSeparator(tier)) {
+        spawnArgs.push("--");
+      }
+      spawnArgs.push(...sanitized);
       cwd = entry.config.cwd;
       env = entry.config.env;
       break;

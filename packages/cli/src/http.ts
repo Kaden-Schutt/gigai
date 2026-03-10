@@ -1,5 +1,16 @@
 import type { ErrorResponse } from "@gigai/shared";
 
+export class HttpError extends Error {
+  public readonly statusCode: number;
+  public readonly errorCode?: string;
+  constructor(statusCode: number, message: string, errorCode?: string) {
+    super(message);
+    this.name = "HttpError";
+    this.statusCode = statusCode;
+    this.errorCode = errorCode;
+  }
+}
+
 export interface HttpClient {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
@@ -83,7 +94,7 @@ export function createHttpClient(
       } catch {}
 
       const message = errorBody?.error?.message ?? `HTTP ${res.status}: ${res.statusText}`;
-      throw new Error(message);
+      throw new HttpError(res.status, message, errorBody?.error?.code);
     }
 
     return res.json() as Promise<T>;
@@ -123,7 +134,7 @@ export function createHttpClient(
         try {
           errorBody = await res.json() as ErrorResponse;
         } catch {}
-        throw new Error(errorBody?.error?.message ?? `HTTP ${res.status}`);
+        throw new HttpError(res.status, errorBody?.error?.message ?? `HTTP ${res.status}`, errorBody?.error?.code);
       }
     },
 
@@ -151,7 +162,7 @@ export function createHttpClient(
         try {
           errorBody = await res.json() as ErrorResponse;
         } catch {}
-        throw new Error(errorBody?.error?.message ?? `HTTP ${res.status}`);
+        throw new HttpError(res.status, errorBody?.error?.message ?? `HTTP ${res.status}`, errorBody?.error?.code);
       }
 
       return res.json() as Promise<T>;
@@ -173,7 +184,7 @@ export function createHttpClient(
       }
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        throw new HttpError(res.status, `HTTP ${res.status}: ${res.statusText}`);
       }
 
       return res;

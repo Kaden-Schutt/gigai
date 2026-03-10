@@ -13,3 +13,4 @@ gigai.config.json
 gigai.crons.json
 gigai-skill/
 *.zip
+.worktrees/

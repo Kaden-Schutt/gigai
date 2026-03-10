@@ -219,7 +219,18 @@ export async function runInit(): Promise<void> {
   });
   const port = parseInt(portStr, 10);
 
-  // 3. Tool selection
+  // 3. Security tier
+  const securityTier = await select({
+    message: "Security tier:",
+    choices: [
+      { name: "Strict — allowlist-only, explicit path restrictions (most secure)", value: "strict" as const },
+      { name: "Standard — denylist blocks catastrophic commands, home dir open (recommended)", value: "standard" as const },
+      { name: "Unrestricted — no restrictions, development only", value: "unrestricted" as const },
+    ],
+    default: "standard" as const,
+  });
+
+  // 4. Tool selection
   const selectedBuiltins = await checkbox({
     message: "Built-in tools to enable:",
     choices: [
@@ -231,36 +242,60 @@ export async function runInit(): Promise<void> {
   const tools: ToolConfig[] = [];
 
   if (selectedBuiltins.includes("filesystem")) {
-    const pathsStr = await input({
-      message: "Allowed filesystem paths (comma-separated):",
-      default: process.env.HOME ?? "~",
+    const restrictPaths = await confirm({
+      message: "Restrict filesystem to specific paths?",
+      default: false,
     });
-    const allowedPaths = pathsStr.split(",").map((p) => p.trim());
-    tools.push({
-      type: "builtin",
-      name: "fs",
-      builtin: "filesystem",
-      description: "Read, list, and search files",
-      config: { allowedPaths },
-    });
+    if (restrictPaths) {
+      const pathsStr = await input({
+        message: "Allowed paths (comma-separated):",
+        default: process.env.HOME ?? "~",
+      });
+      const allowedPaths = pathsStr.split(",").map((p) => p.trim());
+      tools.push({
+        type: "builtin",
+        name: "fs",
+        builtin: "filesystem",
+        description: "Read, list, and search files",
+        config: { allowedPaths },
+      });
+    } else {
+      tools.push({
+        type: "builtin",
+        name: "fs",
+        builtin: "filesystem",
+        description: "Read, list, and search files",
+        config: {},
+      });
+    }
   }
 
   if (selectedBuiltins.includes("shell")) {
-    const allowlistStr = await input({
-      message: "Allowed shell commands (comma-separated):",
-      default: "ls,cat,head,tail,grep,find,wc,echo,date,whoami,pwd,git,npm,node",
-    });
-    const allowlist = allowlistStr.split(",").map((c) => c.trim());
-    const allowSudo = await confirm({
-      message: "Allow sudo?",
+    const restrictCommands = await confirm({
+      message: "Restrict shell to a command allowlist?",
       default: false,
     });
+    const shellConfig: Record<string, unknown> = {};
+    if (restrictCommands) {
+      const allowlistStr = await input({
+        message: "Allowed commands (comma-separated):",
+        default: "ls,cat,head,tail,grep,find,wc,echo,date,whoami,pwd,git,npm,node",
+      });
+      shellConfig.allowlist = allowlistStr.split(",").map((c) => c.trim());
+    }
+    const blockSudo = await confirm({
+      message: "Block sudo?",
+      default: false,
+    });
+    if (blockSudo) {
+      shellConfig.allowSudo = false;
+    }
     tools.push({
       type: "builtin",
       name: "shell",
       builtin: "shell",
-      description: "Execute allowed shell commands",
-      config: { allowlist, allowSudo },
+      description: "Execute shell commands",
+      config: shellConfig,
     });
   }
 
@@ -353,6 +388,7 @@ export async function runInit(): Promise<void> {
       sessionTtlSeconds: 14400,
     },
     tools,
+    security: { default: securityTier, overrides: {} },
   };
 
   // 6. Write config
