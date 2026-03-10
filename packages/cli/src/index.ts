@@ -1,6 +1,22 @@
 import { defineCommand, runMain } from "citty";
 import { VERSION } from "./version.js";
 
+function getKondPath(): string {
+  // Compiled bun binaries have virtual paths in argv[0] and execPath
+  // Use "which kond" fallback, or hardcode the standard install path
+  const argv0 = process.argv[0];
+  if (argv0 && !argv0.includes("$bunfs") && !argv0.includes("bunfs")) {
+    return argv0;
+  }
+  // Fallback: resolve from PATH
+  try {
+    const { execFileSync } = require("node:child_process");
+    return execFileSync("which", ["kond"], { encoding: "utf8" }).trim();
+  } catch {
+    return "/usr/local/bin/kond";
+  }
+}
+
 async function requireServer(): Promise<typeof import("@gigai/server")> {
   try {
     return await import("@gigai/server");
@@ -103,7 +119,7 @@ const startCommand = defineCommand({
     if (configArg) spawnArgs.push("--config", configArg);
     if (dev) spawnArgs.push("--dev");
 
-    const child = spawn(process.argv[0] ?? "kond", spawnArgs, {
+    const child = spawn(getKondPath(), spawnArgs, {
       detached: true,
       stdio: ["ignore", logFd, logFd],
       cwd: resolve("."),

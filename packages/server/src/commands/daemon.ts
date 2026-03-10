@@ -8,14 +8,19 @@ const execFileAsync = promisify(execFile);
 
 function getKondBin(): string {
   // npm/node: process.argv = ["/path/to/node", "/path/to/script.js", ...]
-  // Compiled bun: process.argv = ["/usr/local/bin/kond", "install", ...]
-  //   but process.execPath = "/$bunfs/root/kond-darwin-arm64" (virtual, unusable)
+  // Compiled bun: process.argv = [virtual path, "install", ...]
+  //   both argv[0] and execPath can be virtual /$bunfs/... paths
   const arg1 = process.argv[1];
   if (arg1 && (arg1.endsWith(".js") || arg1.endsWith(".mjs"))) {
     return `${process.execPath} ${arg1}`;
   }
-  // Compiled binary — use argv[0] which is the real filesystem path
-  return process.argv[0] ?? "kond";
+  // Compiled binary — resolve from PATH since argv[0]/execPath may be virtual
+  try {
+    const { execFileSync } = require("node:child_process");
+    return execFileSync("which", ["kond"], { encoding: "utf8" }).trim();
+  } catch {
+    return "/usr/local/bin/kond";
+  }
 }
 
 function getLaunchdPlist(configPath: string): string {
