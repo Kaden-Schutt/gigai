@@ -85,6 +85,7 @@ const pairCommand = defineCommand({
   async run({ args }) {
     const { generateServerPairingCode } = await requireServer();
     await generateServerPairingCode(args.config as string | undefined);
+    process.exit(0);
   },
 });
 
@@ -96,6 +97,7 @@ const installCommand = defineCommand({
   async run({ args }) {
     const { installDaemon } = await requireServer();
     await installDaemon(args.config as string | undefined);
+    process.exit(0);
   },
 });
 
@@ -104,6 +106,7 @@ const uninstallCommand = defineCommand({
   async run() {
     const { uninstallDaemon } = await requireServer();
     await uninstallDaemon();
+    process.exit(0);
   },
 });
 
@@ -115,6 +118,7 @@ const wrapCommand = defineCommand({
       async run() {
         const { wrapCli } = await requireServer();
         await wrapCli();
+        process.exit(0);
       },
     }),
     mcp: defineCommand({
@@ -122,6 +126,7 @@ const wrapCommand = defineCommand({
       async run() {
         const { wrapMcp } = await requireServer();
         await wrapMcp();
+        process.exit(0);
       },
     }),
     script: defineCommand({
@@ -129,6 +134,7 @@ const wrapCommand = defineCommand({
       async run() {
         const { wrapScript } = await requireServer();
         await wrapScript();
+        process.exit(0);
       },
     }),
     import: defineCommand({
@@ -139,6 +145,7 @@ const wrapCommand = defineCommand({
       async run({ args }) {
         const { wrapImport } = await requireServer();
         await wrapImport(args.path as string);
+        process.exit(0);
       },
     }),
   },
@@ -152,6 +159,7 @@ const unwrapCommand = defineCommand({
   async run({ args }) {
     const { unwrapTool } = await requireServer();
     await unwrapTool(args.name);
+    process.exit(0);
   },
 });
 
@@ -240,6 +248,7 @@ const mcpCommand = defineCommand({
           commandArgs,
           Object.keys(env).length > 0 ? env : undefined,
         );
+        process.exit(0);
       },
     }),
     remove: defineCommand({
@@ -254,6 +263,7 @@ const mcpCommand = defineCommand({
       async run({ args }) {
         const { unwrapTool } = await requireServer();
         await unwrapTool(args.name as string);
+        process.exit(0);
       },
     }),
     list: defineCommand({
@@ -261,6 +271,7 @@ const mcpCommand = defineCommand({
       async run() {
         const { mcpList } = await requireServer();
         await mcpList();
+        process.exit(0);
       },
     }),
   },
