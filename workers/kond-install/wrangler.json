@@ -1,6 +1,7 @@
 {
   "name": "kond-install",
   "main": "index.js",
+  "account_id": "b85b197714f8f0b77a5eaac5f9c1268f",
   "compatibility_date": "2025-01-01",
   "routes": [
     {
