@@ -1,73 +1,24 @@
 import { input, select, checkbox, confirm } from "@inquirer/prompts";
-import { readFile, writeFile, readdir } from "node:fs/promises";
+import { readFile, writeFile, readdir, access } from "node:fs/promises";
 import { resolve, join } from "node:path";
-import { execFile, spawn } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import { homedir, platform } from "node:os";
 import { generateEncryptionKey } from "@gigai/shared";
 import type { GigaiConfig, ToolConfig } from "@gigai/shared";
-
-const execFileAsync = promisify(execFile);
-
-async function getTailscaleDnsName(): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync("tailscale", ["status", "--json"]);
-    const data = JSON.parse(stdout);
-    const dnsName = data?.Self?.DNSName;
-    if (dnsName) return dnsName.replace(/\.$/, "");
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function ensureTailscaleFunnel(port: number): Promise<string> {
-  const dnsName = await getTailscaleDnsName();
-  if (!dnsName) {
-    throw new Error("Tailscale is not running or not connected. Install/start Tailscale first.");
-  }
-
-  // Try enabling the funnel — this may prompt the user to enable it on their tailnet
-  console.log("  Enabling Tailscale Funnel...");
-  try {
-    const { stdout, stderr } = await execFileAsync("tailscale", ["funnel", "--bg", `${port}`]);
-    const output = stdout + stderr;
-
-    if (output.includes("Funnel is not enabled")) {
-      // Extract the enable URL
-      const urlMatch = output.match(/(https:\/\/login\.tailscale\.com\/\S+)/);
-      const enableUrl = urlMatch?.[1] ?? "https://login.tailscale.com/admin/machines";
-
-      console.log(`\n  Funnel is not enabled on your tailnet.`);
-      console.log(`  Enable it here: ${enableUrl}\n`);
-
-      await confirm({ message: "I've enabled Funnel in my Tailscale admin. Continue?", default: true });
-
-      // Retry
-      const retry = await execFileAsync("tailscale", ["funnel", "--bg", `${port}`]);
-      if ((retry.stdout + retry.stderr).includes("Funnel is not enabled")) {
-        throw new Error("Funnel is still not enabled. Please enable it in your Tailscale admin and try again.");
-      }
-    }
-  } catch (e) {
-    if ((e as Error).message.includes("Funnel is still not enabled")) throw e;
-    // execFileAsync may throw if the command returns non-zero but still succeeds
-    // (tailscale funnel --bg can print warnings but still work)
-  }
-
-  // Verify funnel is active
-  try {
-    const { stdout } = await execFileAsync("tailscale", ["funnel", "status"]);
-    if (stdout.includes("No serve config")) {
-      throw new Error("Funnel setup failed. Run 'tailscale funnel --bg " + port + "' manually to debug.");
-    }
-  } catch {
-    // funnel status may not be available on all versions, continue anyway
-  }
-
-  console.log(`  Tailscale Funnel active: https://${dnsName}`);
-  return `https://${dnsName}`;
-}
+import {
+  checkAllPrerequisites,
+  checkRunningTailscaleApp,
+  checkHomebrew,
+  checkTailscaleDaemonRunning,
+  checkTailscaleAuth,
+  checkFunnelStatus,
+  installTailscaleFormula,
+  installTailscaleCask,
+  removeTailscaleApp,
+  runTailscaleAuth,
+  activateFunnel,
+  openUrl,
+} from "../prerequisites.js";
 
 interface McpServerEntry {
   command: string;
@@ -148,29 +99,261 @@ async function scanMcpServers(
   }
 }
 
+// --- Tailscale prerequisite setup ---
+
+async function setupTailscalePrerequisites(): Promise<void> {
+  let result = await checkAllPrerequisites();
+
+  while (!result.passed) {
+    const check = result.checks[0];
+
+    switch (check.id) {
+      case "tailscaled-no-funnel": {
+        console.log(`\n  \u2717 ${check.label} \u2014 ${check.detail}`);
+        console.log(`    \u2192 ${check.action}`);
+        console.log("");
+        await input({ message: "Fix the issue above, then press Enter to re-check..." });
+        break;
+      }
+
+      case "tailscaled-stopped": {
+        console.log(`\n  \u2717 ${check.label} \u2014 ${check.detail}`);
+        console.log(`    \u2192 ${check.action}`);
+        console.log("");
+        await input({ message: "Start the daemon, then press Enter to re-check..." });
+        break;
+      }
+
+      case "appstore-tailscale": {
+        console.log(
+          "\n  Kon detected App Store Tailscale. The standalone version is identical " +
+          "but supports more features including Funnel. Your account and devices stay the same.",
+        );
+
+        const shouldSwitch = await confirm({
+          message: "Would you like to switch to the standalone version?",
+          default: true,
+        });
+
+        if (!shouldSwitch) {
+          console.log("\n  Funnel is required for Kon. Run 'kond init' again when ready.\n");
+          process.exit(0);
+        }
+
+        // Step 1: Quit Tailscale
+        console.log("\n  Step 1: Quit Tailscale from the menu bar.");
+        while (await checkRunningTailscaleApp()) {
+          await input({ message: "Quit Tailscale, then press Enter..." });
+        }
+        console.log("  \u2713 Tailscale quit");
+
+        // Step 2: Remove Tailscale.app
+        console.log("\n  Step 2: Remove Tailscale.app");
+        const autoRemove = await confirm({
+          message: "Would you like Kon to remove it?",
+          default: true,
+        });
+
+        if (autoRemove) {
+          await removeTailscaleApp();
+          console.log("  \u2713 Removed /Applications/Tailscale.app");
+        } else {
+          console.log("  Drag /Applications/Tailscale.app to the Trash and empty it.");
+          let appExists = true;
+          while (appExists) {
+            await input({ message: "Press Enter when done..." });
+            try {
+              await access("/Applications/Tailscale.app");
+              console.log("  /Applications/Tailscale.app still exists.");
+            } catch {
+              appExists = false;
+            }
+          }
+          console.log("  \u2713 Tailscale.app removed");
+        }
+
+        // Reboot required
+        console.log(
+          "\n  A reboot is required to clear the old Tailscale extension. " +
+          "Reboot now and run 'kond init' again after.\n",
+        );
+        process.exit(0);
+        break; // unreachable but satisfies linter
+      }
+
+      case "homebrew": {
+        console.log(`\n  \u2717 ${check.label} \u2014 ${check.detail}`);
+        console.log(`    \u2192 ${check.action}`);
+        console.log("");
+        await input({ message: "Install Homebrew, then press Enter to re-check..." });
+        break;
+      }
+
+      case "tailscale-missing": {
+        console.log("\n  Installing Tailscale via Homebrew...\n");
+        await installTailscaleFormula();
+
+        // Daemon health gate: poll until responsive
+        console.log("\n  Waiting for Tailscale daemon to start...");
+        let daemon = await checkTailscaleDaemonRunning();
+        let attempts = 0;
+        while (!daemon.running && attempts < 30) {
+          await new Promise((r) => setTimeout(r, 1000));
+          daemon = await checkTailscaleDaemonRunning();
+          attempts++;
+        }
+        if (!daemon.running) {
+          throw new Error("Tailscale daemon failed to start after install. Run 'kond init' again.");
+        }
+        console.log("  \u2713 Tailscale daemon running");
+
+        // Offer menu bar app
+        const wantCask = await confirm({
+          message: "Would you also like the Tailscale menu bar app?",
+          default: false,
+        });
+        if (wantCask) {
+          console.log("");
+          await installTailscaleCask();
+          console.log("  \u2713 Tailscale menu bar app installed");
+        }
+
+        // Prerequisites now met — re-check will pass
+        break;
+      }
+
+      default: {
+        // Fallback generic gate for any unknown check
+        console.log(`\n  \u2717 ${check.label}${check.detail ? ` \u2014 ${check.detail}` : ""}`);
+        if (check.action) console.log(`    \u2192 ${check.action}`);
+        console.log("");
+        await input({ message: "Fix the issue above, then press Enter to re-check..." });
+        break;
+      }
+    }
+
+    result = await checkAllPrerequisites();
+  }
+
+  // Show green summary
+  console.log("\n  Prerequisites:\n");
+  for (const check of result.checks) {
+    console.log(`    \u2713 ${check.label}`);
+  }
+}
+
+// --- Tailscale auth flow ---
+
+async function ensureTailscaleAuth(): Promise<string> {
+  const state = await checkTailscaleAuth();
+  if (state.authenticated && state.dnsName) {
+    console.log(`  Tailscale: logged in (${state.dnsName})`);
+    return state.dnsName;
+  }
+
+  console.log("\n  Authenticating with Tailscale...");
+
+  await runTailscaleAuth((event) => {
+    if (event.type === "auth-url" && event.authUrl) {
+      openUrl(event.authUrl);
+      console.log(`\n  If your browser didn't open, visit:`);
+      console.log(`  ${event.authUrl}\n`);
+      console.log("  Waiting for authentication...");
+    }
+  });
+
+  const final = await checkTailscaleAuth();
+  if (!final.authenticated || !final.dnsName) {
+    throw new Error("Tailscale authentication failed. Run 'kond init' again.");
+  }
+  console.log(`  Authenticated: ${final.dnsName}`);
+  return final.dnsName;
+}
+
+// --- Funnel setup ---
+
+async function setupFunnel(port: number): Promise<string> {
+  console.log("  Setting up Tailscale Funnel...");
+
+  const result = await activateFunnel(port);
+
+  if (result.consentUrl) {
+    openUrl(result.consentUrl);
+    console.log(`\n  Funnel requires approval. If your browser didn't open, visit:`);
+    console.log(`  ${result.consentUrl}\n`);
+    console.log("  Waiting for approval...");
+
+    // Poll until funnel is active
+    for (let i = 0; i < 60; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const status = await checkFunnelStatus();
+      if (status.active) {
+        console.log(`  Funnel active: ${result.url}`);
+        return result.url;
+      }
+    }
+    throw new Error("Funnel approval timed out. Run 'kond init' again.");
+  }
+
+  console.log(`  Funnel active: ${result.url}`);
+  return result.url;
+}
+
+// --- Main init flow ---
+
 export async function runInit(): Promise<void> {
   console.log("\n  kond server setup\n");
 
-  // 1. HTTPS provider
+  // 1. HTTPS provider selection
   const httpsProvider = await select({
     message: "HTTPS provider:",
     choices: [
       { name: "Tailscale Funnel (recommended)", value: "tailscale" },
       { name: "Cloudflare Tunnel", value: "cloudflare" },
       { name: "Manual (provide certs)", value: "manual" },
-      { name: "None (dev mode only)", value: "none" },
     ],
   });
 
   let httpsConfig: GigaiConfig["server"]["https"];
+  let serverUrl: string | undefined;
+  let tailscaleDnsName: string | undefined;
+  let port: number;
 
   switch (httpsProvider) {
-    case "tailscale":
+    case "tailscale": {
+      // a. Software prerequisite gate loop
+      await setupTailscalePrerequisites();
+
+      // b. Daemon health gate
+      let daemonOk = await checkTailscaleDaemonRunning();
+      while (!daemonOk.running) {
+        console.log(`\n  Tailscale daemon not responding: ${daemonOk.error}`);
+        if (daemonOk.error?.includes("Permission denied")) {
+          console.log("  Open System Settings \u2192 Privacy & Security \u2192 Full Disk Access and add tailscaled.");
+        }
+        await input({ message: "Press Enter to re-check..." });
+        daemonOk = await checkTailscaleDaemonRunning();
+      }
+
+      // c. Auth flow
+      tailscaleDnsName = await ensureTailscaleAuth();
+
+      // d. Port selection
+      const portStr = await input({
+        message: "Server port:",
+        default: "7443",
+      });
+      port = parseInt(portStr, 10);
+
+      // e. Funnel setup
+      serverUrl = await setupFunnel(port);
+
       httpsConfig = {
         provider: "tailscale" as const,
-        funnelPort: 7443,
+        funnelPort: port,
       };
       break;
+    }
 
     case "cloudflare": {
       const tunnelName = await input({
@@ -185,6 +368,17 @@ export async function runInit(): Promise<void> {
         tunnelName,
         ...(domain && { domain }),
       };
+
+      const portStr = await input({
+        message: "Server port:",
+        default: "7443",
+      });
+      port = parseInt(portStr, 10);
+
+      if (domain) {
+        serverUrl = `https://${domain}`;
+        console.log(`  Cloudflare URL: ${serverUrl}`);
+      }
       break;
     }
 
@@ -202,35 +396,31 @@ export async function runInit(): Promise<void> {
         certPath,
         keyPath,
       };
+
+      const portStr = await input({
+        message: "Server port:",
+        default: "7443",
+      });
+      port = parseInt(portStr, 10);
       break;
     }
 
-    case "none":
     default:
-      httpsConfig = undefined;
-      console.log("  No HTTPS — dev mode only.");
-      break;
+      throw new Error(`Unknown HTTPS provider: ${httpsProvider}`);
   }
 
-  // 2. Port
-  const portStr = await input({
-    message: "Server port:",
-    default: "7443",
-  });
-  const port = parseInt(portStr, 10);
-
-  // 3. Security tier
+  // 2. Security tier
   const securityTier = await select({
     message: "Security tier:",
     choices: [
-      { name: "Strict — allowlist-only, explicit path restrictions (most secure)", value: "strict" as const },
-      { name: "Standard — denylist blocks catastrophic commands, home dir open (recommended)", value: "standard" as const },
-      { name: "Unrestricted — no restrictions, development only", value: "unrestricted" as const },
+      { name: "Strict \u2014 allowlist-only, explicit path restrictions (most secure)", value: "strict" as const },
+      { name: "Standard \u2014 denylist blocks catastrophic commands, home dir open (recommended)", value: "standard" as const },
+      { name: "Unrestricted \u2014 no restrictions, development only", value: "unrestricted" as const },
     ],
     default: "standard" as const,
   });
 
-  // 4. Tool selection
+  // 3. Tool selection
   const selectedBuiltins = await checkbox({
     message: "Built-in tools to enable:",
     choices: [
@@ -299,7 +489,7 @@ export async function runInit(): Promise<void> {
     });
   }
 
-  // 3b. MCP auto-import from Claude Desktop
+  // 4. MCP auto-import from Claude Desktop
   const configFilePath = await detectClaudeDesktopConfig();
   if (configFilePath) {
     const mcpServers = await scanMcpServers(configFilePath);
@@ -334,7 +524,7 @@ export async function runInit(): Promise<void> {
     }
   }
 
-  // 3c. Offer iMessage on macOS
+  // 5. Offer iMessage on macOS
   if (platform() === "darwin") {
     const enableIMessage = await confirm({
       message: "Enable iMessage? (lets Claude send and read iMessages)",
@@ -352,14 +542,11 @@ export async function runInit(): Promise<void> {
     }
   }
 
-  // 4. Determine server name
+  // 6. Determine server name
   let serverName: string | undefined;
 
-  if (httpsProvider === "tailscale") {
-    const dnsName = await getTailscaleDnsName();
-    if (dnsName) {
-      serverName = dnsName.split(".")[0];
-    }
+  if (httpsProvider === "tailscale" && tailscaleDnsName) {
+    serverName = tailscaleDnsName.split(".")[0];
   } else if (httpsProvider === "cloudflare") {
     serverName = await input({
       message: "Server name (identifies this machine):",
@@ -372,7 +559,7 @@ export async function runInit(): Promise<void> {
     serverName = osHostname();
   }
 
-  // 5. Generate config
+  // 7. Generate config
   const encryptionKey = generateEncryptionKey();
 
   const config: GigaiConfig = {
@@ -380,7 +567,7 @@ export async function runInit(): Promise<void> {
     server: {
       port,
       host: "0.0.0.0",
-      ...(httpsConfig && { https: httpsConfig }),
+      https: httpsConfig,
     },
     auth: {
       encryptionKey,
@@ -391,26 +578,12 @@ export async function runInit(): Promise<void> {
     security: { default: securityTier, overrides: {} },
   };
 
-  // 6. Write config
+  // 8. Write config
   const configPath = resolve("kon.config.json");
   await writeFile(configPath, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
   console.log(`\n  Config written to: ${configPath}`);
 
-  // 7. Enable HTTPS and detect server URL
-  let serverUrl: string | undefined;
-
-  if (httpsProvider === "tailscale") {
-    try {
-      serverUrl = await ensureTailscaleFunnel(port);
-    } catch (e) {
-      console.error(`  ${(e as Error).message}`);
-      console.log("  You can enable Funnel later and run 'kond start' manually.\n");
-    }
-  } else if (httpsProvider === "cloudflare" && httpsConfig && "domain" in httpsConfig && httpsConfig.domain) {
-    serverUrl = `https://${httpsConfig.domain}`;
-    console.log(`  Cloudflare URL: ${serverUrl}`);
-  }
-
+  // 9. Prompt for server URL if not already known
   if (!serverUrl) {
     serverUrl = await input({
       message: "Server URL (how clients will reach this server):",
@@ -418,10 +591,9 @@ export async function runInit(): Promise<void> {
     });
   }
 
-  // 8. Start server in background
+  // 10. Start server in background
   console.log("\n  Starting server...");
   const serverArgs = ["start", "--config", configPath];
-  if (!httpsConfig) serverArgs.push("--dev");
 
   const child = spawn("kond", serverArgs, {
     detached: true,
@@ -443,7 +615,7 @@ export async function runInit(): Promise<void> {
     console.log(`  Server starting in background (PID ${child.pid})`);
   }
 
-  // 9. Generate pairing code from the running server
+  // 11. Generate pairing code from the running server
   let code: string | undefined;
   const maxRetries = 5;
   for (let i = 0; i < maxRetries; i++) {
@@ -467,14 +639,14 @@ export async function runInit(): Promise<void> {
   }
 
   console.log(`\n  Paste this into Claude to pair:\n`);
-  console.log(`  ──────────────────────────────────────────────`);
+  console.log(`  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
   console.log(`  Install kon and pair with my server:\n`);
   console.log(`  \`\`\`bash`);
   console.log(`  npm install -g @schuttdev/kon`);
   console.log(`  kon pair ${code} ${serverUrl}`);
   console.log(`  \`\`\`\n`);
   console.log(`  Then show me the skill file output so I can save it.`);
-  console.log(`  ──────────────────────────────────────────────`);
+  console.log(`  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
   console.log(`\n  Pairing code expires in ${config.auth.pairingTtlSeconds / 60} minutes.`);
   console.log(`  Run 'kond pair' to generate a new one.\n`);
 }
