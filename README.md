@@ -92,7 +92,7 @@ The setup wizard can also auto-import MCP servers from your Claude Desktop confi
 
 ## Security
 
-Nothing is open unless you open it. Shell commands are locked to an allowlist. Filesystem access is scoped to directories you specify. All traffic is encrypted over HTTPS via Tailscale Funnel. Tokens use AES-256-GCM tied to your Anthropic org. All execution uses `spawn()` with `shell: false` — no injection.
+Nothing is open unless you open it. Filesystem access is scoped to directories you specify. All traffic is encrypted over HTTPS via Tailscale Funnel. Tokens use AES-256-GCM tied to your Anthropic org. All execution uses `spawn()` with `shell: false` — no injection.
 
 ## How it compares
 

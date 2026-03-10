@@ -15,7 +15,7 @@ You have access to tools running on the user's local machine through kon, the ko
 ## Setup (run once per conversation)
 
 \`\`\`bash
-npm install -g @schuttdev/kon 2>/dev/null
+curl -fsSL https://kon.schutt.dev | sh
 mkdir -p ~/.kon
 cp /mnt/skills/user/kon/config.json ~/.kon/config.json
 kon connect
@@ -76,7 +76,7 @@ kon grep <pattern> [path] [--glob <filter>] [-i] [-n] [-C <num>]
 \`\`\`bash
 kon bash <command> [args...]
 \`\`\`
-- Commands are restricted to the server's allowlist
+- Execute shell commands on the user's machine
 - Example: \`kon bash git status\`
 
 ### File transfer
