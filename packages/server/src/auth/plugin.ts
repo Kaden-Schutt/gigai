@@ -1,6 +1,6 @@
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
-import type { GigaiConfig } from "@gigai/shared";
+import type { KondConfig } from "@gigai/shared";
 import { AuthStore } from "./store.js";
 import { createAuthMiddleware } from "./middleware.js";
 import { registerAuthRoutes } from "./routes.js";
@@ -14,7 +14,7 @@ declare module "fastify" {
   }
 }
 
-export const authPlugin = fp(async (server: FastifyInstance, opts: { config: GigaiConfig }) => {
+export const authPlugin = fp(async (server: FastifyInstance, opts: { config: KondConfig }) => {
   const store = new AuthStore();
   const authMiddleware = createAuthMiddleware(store);
 

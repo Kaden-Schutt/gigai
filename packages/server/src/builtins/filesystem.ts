@@ -7,7 +7,7 @@ import {
 import { resolve, relative, join, basename } from "node:path";
 import { realpath } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { GigaiError, ErrorCode } from "@gigai/shared";
+import { KondError, ErrorCode } from "@gigai/shared";
 import { canAccessPath, expandTilde, type SecurityTier } from "../security.js";
 
 const MAX_OUTPUT_SIZE = 10 * 1024 * 1024; // 10MB
@@ -29,7 +29,7 @@ export async function validatePath(
 
   const check = canAccessPath(tier, real, allowedPaths);
   if (!check.allowed) {
-    throw new GigaiError(ErrorCode.PATH_NOT_ALLOWED, check.reason!);
+    throw new KondError(ErrorCode.PATH_NOT_ALLOWED, check.reason!);
   }
 
   return real;
@@ -71,7 +71,7 @@ export async function searchFilesSafe(
   try {
     regex = new RegExp(pattern, "i");
   } catch {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, `Invalid search pattern: ${pattern}`);
+    throw new KondError(ErrorCode.VALIDATION_ERROR, `Invalid search pattern: ${pattern}`);
   }
 
   async function walk(dir: string): Promise<void> {
@@ -104,14 +104,14 @@ export async function readBuiltin(
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const filePath = args[0];
   if (!filePath) {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: read <file> [offset] [limit]");
+    throw new KondError(ErrorCode.VALIDATION_ERROR, "Usage: read <file> [offset] [limit]");
   }
 
   const safePath = await validatePath(filePath, allowedPaths, tier);
   const content = await fsReadFile(safePath, "utf8");
 
   if (content.length > MAX_READ_SIZE) {
-    throw new GigaiError(
+    throw new KondError(
       ErrorCode.VALIDATION_ERROR,
       `File too large (${(content.length / 1024 / 1024).toFixed(1)}MB). Max: ${MAX_READ_SIZE / 1024 / 1024}MB. Use offset/limit.`,
     );
@@ -143,7 +143,7 @@ export async function writeBuiltin(
   const filePath = args[0];
   const content = args[1];
   if (!filePath || content === undefined) {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: write <file> <content>");
+    throw new KondError(ErrorCode.VALIDATION_ERROR, "Usage: write <file> <content>");
   }
 
   const safePath = await validatePath(filePath, allowedPaths, tier);
@@ -172,14 +172,14 @@ export async function editBuiltin(
   const replaceAll = args.includes("--all");
 
   if (!filePath || oldStr === undefined || newStr === undefined) {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: edit <file> <old_string> <new_string> [--all]");
+    throw new KondError(ErrorCode.VALIDATION_ERROR, "Usage: edit <file> <old_string> <new_string> [--all]");
   }
 
   const safePath = await validatePath(filePath, allowedPaths, tier);
   const content = await fsReadFile(safePath, "utf8");
 
   if (!content.includes(oldStr)) {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, "old_string not found in file");
+    throw new KondError(ErrorCode.VALIDATION_ERROR, "old_string not found in file");
   }
 
   if (!replaceAll) {
@@ -187,7 +187,7 @@ export async function editBuiltin(
     const firstIdx = content.indexOf(oldStr);
     const secondIdx = content.indexOf(oldStr, firstIdx + 1);
     if (secondIdx !== -1) {
-      throw new GigaiError(
+      throw new KondError(
         ErrorCode.VALIDATION_ERROR,
         "old_string matches multiple locations. Use --all to replace all, or provide more context to make it unique.",
       );
@@ -219,7 +219,7 @@ export async function globBuiltin(
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const pattern = args[0];
   if (!pattern) {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: glob <pattern> [path]");
+    throw new KondError(ErrorCode.VALIDATION_ERROR, "Usage: glob <pattern> [path]");
   }
 
   const searchPath = args[1] ?? ".";
@@ -266,7 +266,7 @@ export async function grepBuiltin(
   tier: SecurityTier = "strict",
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   if (args.length === 0) {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Usage: grep <pattern> [path] [--glob <filter>] [-i] [-n] [-C <num>]");
+    throw new KondError(ErrorCode.VALIDATION_ERROR, "Usage: grep <pattern> [path] [--glob <filter>] [-i] [-n] [-C <num>]");
   }
 
   // Parse args
@@ -295,7 +295,7 @@ export async function grepBuiltin(
 
   const pattern = positional[0];
   if (!pattern) {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, "No search pattern provided");
+    throw new KondError(ErrorCode.VALIDATION_ERROR, "No search pattern provided");
   }
   const searchPath = positional[1] ?? ".";
   const safePath = await validatePath(searchPath, allowedPaths, tier);
@@ -350,7 +350,7 @@ async function jsGrep(
   try {
     regex = new RegExp(pattern);
   } catch {
-    throw new GigaiError(ErrorCode.VALIDATION_ERROR, `Invalid pattern: ${pattern}`);
+    throw new KondError(ErrorCode.VALIDATION_ERROR, `Invalid pattern: ${pattern}`);
   }
 
   const results: string[] = [];

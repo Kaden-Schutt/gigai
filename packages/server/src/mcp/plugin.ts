@@ -1,6 +1,6 @@
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
-import type { GigaiConfig, McpToolConfig } from "@gigai/shared";
+import type { KondConfig, McpToolConfig } from "@gigai/shared";
 import { McpPool } from "./pool.js";
 import { McpLifecycleManager } from "./lifecycle.js";
 
@@ -10,7 +10,7 @@ declare module "fastify" {
   }
 }
 
-export const mcpPlugin = fp(async (server: FastifyInstance, opts: { config: GigaiConfig }) => {
+export const mcpPlugin = fp(async (server: FastifyInstance, opts: { config: KondConfig }) => {
   const pool = new McpPool();
 
   const mcpTools = opts.config.tools.filter(

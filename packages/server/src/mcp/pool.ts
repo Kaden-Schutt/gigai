@@ -1,5 +1,5 @@
 import type { McpToolConfig, McpToolInfo } from "@gigai/shared";
-import { GigaiError, ErrorCode } from "@gigai/shared";
+import { KondError, ErrorCode } from "@gigai/shared";
 import { McpClientWrapper } from "./client.js";
 
 export class McpPool {
@@ -14,7 +14,7 @@ export class McpPool {
   getClient(name: string): McpClientWrapper {
     const client = this.clients.get(name);
     if (!client) {
-      throw new GigaiError(ErrorCode.TOOL_NOT_FOUND, `MCP tool not found: ${name}`);
+      throw new KondError(ErrorCode.TOOL_NOT_FOUND, `MCP tool not found: ${name}`);
     }
     return client;
   }

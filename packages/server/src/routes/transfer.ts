@@ -3,7 +3,7 @@ import { writeFile, readFile, unlink, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { nanoid } from "nanoid";
-import { GigaiError, ErrorCode } from "@gigai/shared";
+import { KondError, ErrorCode } from "@gigai/shared";
 
 interface TransferEntry {
   id: string;
@@ -34,7 +34,7 @@ export async function transferRoutes(server: FastifyInstance) {
   server.post("/transfer/upload", async (request) => {
     const data = await request.file();
     if (!data) {
-      throw new GigaiError(ErrorCode.VALIDATION_ERROR, "No file uploaded");
+      throw new KondError(ErrorCode.VALIDATION_ERROR, "No file uploaded");
     }
 
     const id = nanoid(16);
@@ -63,12 +63,12 @@ export async function transferRoutes(server: FastifyInstance) {
     const entry = transfers.get(id);
 
     if (!entry) {
-      throw new GigaiError(ErrorCode.TRANSFER_NOT_FOUND, "Transfer not found");
+      throw new KondError(ErrorCode.TRANSFER_NOT_FOUND, "Transfer not found");
     }
 
     if (entry.expiresAt < Date.now()) {
       transfers.delete(id);
-      throw new GigaiError(ErrorCode.TRANSFER_EXPIRED, "Transfer expired");
+      throw new KondError(ErrorCode.TRANSFER_EXPIRED, "Transfer expired");
     }
 
     const content = await readFile(entry.path);

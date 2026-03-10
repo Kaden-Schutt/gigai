@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { GigaiError, ErrorCode } from "@gigai/shared";
+import { KondError, ErrorCode } from "@gigai/shared";
 import { canExecuteCommand, canUseSudo, validateCommandArgs, expandTilde, type SecurityTier } from "../security.js";
 
 export interface ShellConfig {
@@ -19,25 +19,25 @@ export async function execCommandSafe(
   if (command === "sudo") {
     const sudoCheck = canUseSudo(config.allowSudo);
     if (!sudoCheck.allowed) {
-      throw new GigaiError(ErrorCode.COMMAND_NOT_ALLOWED, sudoCheck.reason!);
+      throw new KondError(ErrorCode.COMMAND_NOT_ALLOWED, sudoCheck.reason!);
     }
   }
 
   // Command check (tier-aware)
   const check = canExecuteCommand(tier, command, config.allowlist);
   if (!check.allowed) {
-    throw new GigaiError(ErrorCode.COMMAND_NOT_ALLOWED, check.reason!);
+    throw new KondError(ErrorCode.COMMAND_NOT_ALLOWED, check.reason!);
   }
 
   // Argument check (block catastrophic patterns like rm -rf /)
   const argCheck = validateCommandArgs(tier, command, args);
   if (!argCheck.allowed) {
-    throw new GigaiError(ErrorCode.COMMAND_NOT_ALLOWED, argCheck.reason!);
+    throw new KondError(ErrorCode.COMMAND_NOT_ALLOWED, argCheck.reason!);
   }
 
   for (const arg of args) {
     if (arg.includes("\0")) {
-      throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Null byte in argument");
+      throw new KondError(ErrorCode.VALIDATION_ERROR, "Null byte in argument");
     }
   }
 
@@ -65,7 +65,7 @@ export async function execCommandSafe(
     });
 
     child.on("error", (err) => {
-      reject(new GigaiError(ErrorCode.EXEC_FAILED, `Failed to spawn ${command}: ${err.message}`));
+      reject(new KondError(ErrorCode.EXEC_FAILED, `Failed to spawn ${command}: ${err.message}`));
     });
 
     child.on("close", (exitCode) => {

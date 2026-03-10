@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { GigaiError, ErrorCode, type McpToolConfig, type McpToolInfo } from "@gigai/shared";
+import { KondError, ErrorCode, type McpToolConfig, type McpToolInfo } from "@gigai/shared";
 
 export class McpClientWrapper {
   private client: Client | null = null;
@@ -56,7 +56,7 @@ export class McpClientWrapper {
         isError: result.isError ?? false,
       };
     } catch (err) {
-      throw new GigaiError(
+      throw new KondError(
         ErrorCode.MCP_ERROR,
         `MCP tool call failed: ${(err as Error).message}`,
       );

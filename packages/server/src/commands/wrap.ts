@@ -1,8 +1,8 @@
 import { input, select } from "@inquirer/prompts";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { GigaiConfig, ToolConfig } from "@gigai/shared";
-import { GigaiConfigSchema } from "@gigai/shared";
+import type { KondConfig, ToolConfig } from "@gigai/shared";
+import { KondConfigSchema } from "@gigai/shared";
 
 function splitCommand(input: string): { command: string; args: string[] } {
   const tokens: string[] = [];
@@ -32,14 +32,14 @@ function splitCommand(input: string): { command: string; args: string[] } {
   return { command: tokens[0] ?? input.trim(), args: tokens.slice(1) };
 }
 
-async function loadConfigFile(path?: string): Promise<{ config: GigaiConfig; path: string }> {
+async function loadConfigFile(path?: string): Promise<{ config: KondConfig; path: string }> {
   const configPath = resolve(path ?? "kon.config.json");
   const raw = await readFile(configPath, "utf8");
-  const config = GigaiConfigSchema.parse(JSON.parse(raw));
+  const config = KondConfigSchema.parse(JSON.parse(raw));
   return { config, path: configPath };
 }
 
-async function saveConfig(config: GigaiConfig, path: string): Promise<void> {
+async function saveConfig(config: KondConfig, path: string): Promise<void> {
   await writeFile(path, JSON.stringify(config, null, 2) + "\n");
 }
 

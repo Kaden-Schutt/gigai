@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { GigaiError, ErrorCode } from "@gigai/shared";
+import { KondError, ErrorCode } from "@gigai/shared";
 import type { RegistryEntry } from "../registry/types.js";
 import { sanitizeArgs } from "./sanitize.js";
 import { shouldInjectSeparator, type SecurityTier } from "../security.js";
@@ -47,7 +47,7 @@ export function executeTool(
       break;
     }
     default:
-      throw new GigaiError(
+      throw new KondError(
         ErrorCode.EXEC_FAILED,
         `Cannot execute tool of type: ${entry.type}`,
       );
@@ -91,7 +91,7 @@ export function executeTool(
 
     child.on("error", (err) => {
       clearTimeout(timer);
-      reject(new GigaiError(ErrorCode.EXEC_FAILED, `Failed to spawn: ${err.message}`));
+      reject(new KondError(ErrorCode.EXEC_FAILED, `Failed to spawn: ${err.message}`));
     });
 
     child.on("close", (exitCode) => {
@@ -99,7 +99,7 @@ export function executeTool(
       const durationMs = Date.now() - start;
 
       if (killed) {
-        reject(new GigaiError(ErrorCode.EXEC_TIMEOUT, `Tool execution timed out after ${effectiveTimeout}ms`));
+        reject(new KondError(ErrorCode.EXEC_TIMEOUT, `Tool execution timed out after ${effectiveTimeout}ms`));
         return;
       }
 

@@ -1,50 +1,43 @@
 # Kon Setup: macOS
 
-## 1. Install Tailscale
+## 1. Install kond
 
-**Option A: Homebrew (recommended for CLI usage)**
-
-```bash
-brew install tailscale
-```
-
-Start the daemon:
+Requires Node.js 20+ and [Homebrew](https://brew.sh/).
 
 ```bash
-sudo tailscaled install-system-daemon
+npm install -g @schuttdev/kond
 ```
 
-**Option B: App Store**
-
-Download [Tailscale from the Mac App Store](https://apps.apple.com/app/tailscale/id1475387142). The app runs in the menu bar and manages the daemon automatically.
-
-> Both options work. The Homebrew version gives you CLI-only control. The App Store version adds a menu bar UI. Pick whichever you prefer — the `tailscale` CLI commands are the same either way.
-
-## 2. Authenticate
+If you need Node:
 
 ```bash
-tailscale up
+brew install node@20
 ```
 
-This opens a browser to log in to your Tailscale account. If you don't have one, create a free account at [tailscale.com](https://tailscale.com/).
-
-Verify you're connected:
+## 2. Run the setup wizard
 
 ```bash
-tailscale status
+kond init
 ```
 
-You should see your machine listed with a `100.x.x.x` IP address.
+The wizard handles everything automatically:
 
-## 3. Enable Funnel
+- **No Tailscale?** Installs it via Homebrew (`brew install tailscale`), starts the daemon, and optionally installs the menu bar app
+- **App Store Tailscale?** Guides you through switching to the standalone version (required for Funnel)
+- **Tailscale already installed?** Detects it and skips straight to auth
+- Authenticates with Tailscale and enables Funnel
+- Asks which tools to enable (filesystem, shell, etc.)
+- Scopes permissions (allowed paths, allowed commands)
+- Auto-imports MCP servers from Claude Desktop if found
+- Starts the server and generates a pairing prompt
 
-Funnel lets your machine accept connections from the public internet over HTTPS. This is how Claude's sandbox reaches your server.
+## 3. Enable Funnel in the admin console
 
-**Enable Funnel in the admin console first:**
+Before the wizard can activate Funnel, you need to enable it in Tailscale's admin console:
 
 1. Go to [Tailscale Admin Console](https://login.tailscale.com/admin/dns)
 2. Under **DNS**, scroll to **HTTPS Certificates** and enable it
-3. Go to [Access Controls](https://login.tailscale.com/admin/acls/file) and add a Funnel policy. Add this to your ACL file (or merge with existing):
+3. Go to [Access Controls](https://login.tailscale.com/admin/acls/file) and add a Funnel policy:
 
 ```json
 {
@@ -59,42 +52,9 @@ Funnel lets your machine accept connections from the public internet over HTTPS.
 
 This allows all your devices to use Funnel. You can restrict it to specific devices if you prefer.
 
-**Test Funnel from the CLI:**
-
-```bash
-tailscale funnel 7443
-```
-
-This serves port 7443 over HTTPS at `https://<your-machine>.<tailnet>.ts.net/`. Press Ctrl+C to stop the test.
-
 > Funnel assigns your machine a stable HTTPS URL like `https://macbook-pro.tail1234.ts.net`. This URL is what Claude uses to reach your server.
 
-## 4. Install kond
-
-```bash
-npm install -g @schuttdev/kond
-```
-
-Requires Node.js 20+. If you need Node:
-
-```bash
-brew install node@20
-```
-
-## 5. Run the setup wizard
-
-```bash
-kond init
-```
-
-The wizard will:
-- Detect Tailscale and offer to configure Funnel
-- Ask which tools to enable (filesystem, shell, etc.)
-- Ask you to scope permissions (allowed paths, allowed commands)
-- Start the server
-- Generate a pairing prompt to paste into Claude
-
-## 6. Run as a background service
+## 4. Run as a background service
 
 To keep kond running after you close the terminal:
 
@@ -124,7 +84,7 @@ You need to enable HTTPS certificates and add the Funnel node attribute in the T
 
 **`tailscale up` hangs or fails**
 
-If using Homebrew, make sure the daemon is running: `sudo tailscaled install-system-daemon`. If using the App Store app, make sure it's open in the menu bar.
+Make sure the daemon is running: `brew services start tailscale`.
 
 **Port 7443 already in use**
 

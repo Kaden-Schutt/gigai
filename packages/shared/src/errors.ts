@@ -48,14 +48,14 @@ const STATUS_CODES: Record<ErrorCode, number> = {
   [ErrorCode.COMMAND_NOT_ALLOWED]: 403,
 };
 
-export class GigaiError extends Error {
+export class KondError extends Error {
   public readonly code: ErrorCode;
   public readonly statusCode: number;
   public readonly details?: unknown;
 
   constructor(code: ErrorCode, message: string, details?: unknown) {
     super(message);
-    this.name = "GigaiError";
+    this.name = "KondError";
     this.code = code;
     this.statusCode = STATUS_CODES[code];
     this.details = details;

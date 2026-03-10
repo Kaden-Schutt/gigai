@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { encrypt, type EncryptedPayload, ErrorCode, GigaiError } from "@gigai/shared";
+import { encrypt, type EncryptedPayload, ErrorCode, KondError } from "@gigai/shared";
 import type { AuthStore } from "./store.js";
 
 const PAIRING_CODE_LENGTH = 8;
@@ -25,15 +25,15 @@ export function validateAndPair(
   const entry = store.getPairingCode(code.toUpperCase());
 
   if (!entry) {
-    throw new GigaiError(ErrorCode.PAIRING_INVALID, "Invalid pairing code");
+    throw new KondError(ErrorCode.PAIRING_INVALID, "Invalid pairing code");
   }
 
   if (entry.used) {
-    throw new GigaiError(ErrorCode.PAIRING_USED, "Pairing code already used");
+    throw new KondError(ErrorCode.PAIRING_USED, "Pairing code already used");
   }
 
   if (entry.expiresAt < Date.now()) {
-    throw new GigaiError(ErrorCode.PAIRING_EXPIRED, "Pairing code expired");
+    throw new KondError(ErrorCode.PAIRING_EXPIRED, "Pairing code expired");
   }
 
   store.markPairingCodeUsed(code.toUpperCase());

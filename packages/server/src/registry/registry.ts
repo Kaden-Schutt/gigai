@@ -1,5 +1,5 @@
 import type { ToolConfig, ToolSummary, ToolDetail } from "@gigai/shared";
-import { GigaiError, ErrorCode } from "@gigai/shared";
+import { KondError, ErrorCode } from "@gigai/shared";
 import type { RegistryEntry } from "./types.js";
 
 export class ToolRegistry {
@@ -19,7 +19,7 @@ export class ToolRegistry {
   get(name: string): RegistryEntry {
     const entry = this.tools.get(name);
     if (!entry) {
-      throw new GigaiError(ErrorCode.TOOL_NOT_FOUND, `Tool not found: ${name}`);
+      throw new KondError(ErrorCode.TOOL_NOT_FOUND, `Tool not found: ${name}`);
     }
     return entry;
   }

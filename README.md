@@ -70,9 +70,9 @@ You decide exactly what Claude can touch. Nothing is open unless you open it.
 
 ## Quickstart
 
-**Prerequisites:** 
-[Tailscale](https://tailscale.com/) with Funnel enabled. 
-> Guides: [macOS](docs/setup-macos.md) | [Linux](docs/setup-linux.md) | [WSL](docs/setup-wsl.md) | [Docker](docs/setup-docker.md)
+**Prerequisites:**
+[Homebrew](https://brew.sh/) (macOS) and [Node.js 20+](https://nodejs.org/). The setup wizard installs Tailscale for you if needed.
+> Platform guides: [macOS](docs/setup-macos.md) | [Linux](docs/setup-linux.md) | [WSL](docs/setup-wsl.md) | [Docker](docs/setup-docker.md)
 
 Claude capabilities configured for code execution — go to **Settings > Capabilities** on claude.ai:
 

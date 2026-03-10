@@ -4,7 +4,7 @@ import { resolve, join } from "node:path";
 import { spawn } from "node:child_process";
 import { homedir, platform } from "node:os";
 import { generateEncryptionKey } from "@gigai/shared";
-import type { GigaiConfig, ToolConfig } from "@gigai/shared";
+import type { KondConfig, ToolConfig } from "@gigai/shared";
 import {
   checkAllPrerequisites,
   checkRunningTailscaleApp,
@@ -314,7 +314,7 @@ export async function runInit(): Promise<void> {
     ],
   });
 
-  let httpsConfig: GigaiConfig["server"]["https"];
+  let httpsConfig: KondConfig["server"]["https"];
   let serverUrl: string | undefined;
   let tailscaleDnsName: string | undefined;
   let port: number;
@@ -562,7 +562,7 @@ export async function runInit(): Promise<void> {
   // 7. Generate config
   const encryptionKey = generateEncryptionKey();
 
-  const config: GigaiConfig = {
+  const config: KondConfig = {
     serverName,
     server: {
       port,

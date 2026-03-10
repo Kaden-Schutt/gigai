@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply }
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
-import { GigaiError, ErrorCode, type GigaiConfig, type SecurityConfig } from "@gigai/shared";
+import { KondError, ErrorCode, type KondConfig, type SecurityConfig } from "@gigai/shared";
 import { authPlugin } from "./auth/plugin.js";
 import { registryPlugin } from "./registry/plugin.js";
 import { executorPlugin } from "./executor/plugin.js";
@@ -22,7 +22,7 @@ declare module "fastify" {
 }
 
 export interface ServerOptions {
-  config: GigaiConfig;
+  config: KondConfig;
   configPath?: string;
   dev?: boolean;
 }
@@ -43,7 +43,7 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
   if (!dev && !behindTunnel) {
     server.addHook("onRequest", async (request: FastifyRequest, _reply: FastifyReply) => {
       if (request.protocol !== "https") {
-        throw new GigaiError(ErrorCode.HTTPS_REQUIRED, "HTTPS is required");
+        throw new KondError(ErrorCode.HTTPS_REQUIRED, "HTTPS is required");
       }
     });
   }
@@ -78,7 +78,7 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
 
   // Global error handler
   server.setErrorHandler((error: Error, _request: FastifyRequest, reply: FastifyReply) => {
-    if (error instanceof GigaiError) {
+    if (error instanceof KondError) {
       reply.status(error.statusCode).send(error.toJSON());
       return;
     }

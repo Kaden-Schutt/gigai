@@ -1,6 +1,6 @@
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
-import type { GigaiConfig } from "@gigai/shared";
+import type { KondConfig } from "@gigai/shared";
 import { ToolRegistry } from "./registry.js";
 
 declare module "fastify" {
@@ -9,7 +9,7 @@ declare module "fastify" {
   }
 }
 
-export const registryPlugin = fp(async (server: FastifyInstance, opts: { config: GigaiConfig }) => {
+export const registryPlugin = fp(async (server: FastifyInstance, opts: { config: KondConfig }) => {
   const registry = new ToolRegistry();
   registry.loadFromConfig(opts.config.tools);
   server.decorate("registry", registry);

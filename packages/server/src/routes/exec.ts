@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { ExecRequest, ExecMcpRequest } from "@gigai/shared";
-import { GigaiError, ErrorCode } from "@gigai/shared";
+import { KondError, ErrorCode } from "@gigai/shared";
 import {
   readFileSafe, listDirSafe, searchFilesSafe,
   readBuiltin, writeBuiltin, editBuiltin,
@@ -60,7 +60,7 @@ export async function execRoutes(server: FastifyInstance) {
     const entry = server.registry.get(tool);
 
     if (entry.type !== "mcp") {
-      throw new GigaiError(ErrorCode.VALIDATION_ERROR, `Tool ${tool} is not an MCP tool`);
+      throw new KondError(ErrorCode.VALIDATION_ERROR, `Tool ${tool} is not an MCP tool`);
     }
 
     const start = Date.now();
@@ -97,7 +97,7 @@ async function handleBuiltin(
         case "search":
           return { stdout: JSON.stringify(await searchFilesSafe(target, args[2] ?? ".*", allowedPaths ?? [], tier), null, 2), stderr: "", exitCode: 0, durationMs: 0 };
         default:
-          throw new GigaiError(ErrorCode.VALIDATION_ERROR, `Unknown filesystem subcommand: ${subcommand}. Use: read, list, search`);
+          throw new KondError(ErrorCode.VALIDATION_ERROR, `Unknown filesystem subcommand: ${subcommand}. Use: read, list, search`);
       }
     }
 
@@ -107,7 +107,7 @@ async function handleBuiltin(
       const allowSudo = builtinConfig.allowSudo as boolean | undefined;
       const command = args[0];
       if (!command) {
-        throw new GigaiError(ErrorCode.VALIDATION_ERROR, "No command specified");
+        throw new KondError(ErrorCode.VALIDATION_ERROR, "No command specified");
       }
       const result = await execCommandSafe(command, args.slice(1), { allowlist, allowSudo }, tier);
       return { ...result, durationMs: 0 };
@@ -145,13 +145,13 @@ async function handleBuiltin(
       const allowSudo = builtinConfig.allowSudo as boolean | undefined;
       const command = args[0];
       if (!command) {
-        throw new GigaiError(ErrorCode.VALIDATION_ERROR, "No command specified");
+        throw new KondError(ErrorCode.VALIDATION_ERROR, "No command specified");
       }
       const result = await execCommandSafe(command, args.slice(1), { allowlist, allowSudo }, tier);
       return { ...result, durationMs: 0 };
     }
 
     default:
-      throw new GigaiError(ErrorCode.VALIDATION_ERROR, `Unknown builtin: ${config.builtin}`);
+      throw new KondError(ErrorCode.VALIDATION_ERROR, `Unknown builtin: ${config.builtin}`);
   }
 }

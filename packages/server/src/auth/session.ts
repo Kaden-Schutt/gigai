@@ -1,4 +1,4 @@
-import { decrypt, ErrorCode, GigaiError, type EncryptedPayload } from "@gigai/shared";
+import { decrypt, ErrorCode, KondError, type EncryptedPayload } from "@gigai/shared";
 import type { AuthStore, Session } from "./store.js";
 
 export function connectWithToken(
@@ -12,18 +12,18 @@ export function connectWithToken(
   try {
     payload = JSON.parse(encryptedToken);
   } catch {
-    throw new GigaiError(ErrorCode.TOKEN_INVALID, "Invalid token format");
+    throw new KondError(ErrorCode.TOKEN_INVALID, "Invalid token format");
   }
 
   let decrypted;
   try {
     decrypted = decrypt(payload, encryptionKey);
   } catch {
-    throw new GigaiError(ErrorCode.TOKEN_DECRYPT_FAILED, "Failed to decrypt token");
+    throw new KondError(ErrorCode.TOKEN_DECRYPT_FAILED, "Failed to decrypt token");
   }
 
   if (decrypted.orgUuid !== orgUuid) {
-    throw new GigaiError(ErrorCode.ORG_MISMATCH, "Organization UUID mismatch");
+    throw new KondError(ErrorCode.ORG_MISMATCH, "Organization UUID mismatch");
   }
 
   return store.createSession(orgUuid, sessionTtlSeconds);
@@ -33,11 +33,11 @@ export function validateSession(store: AuthStore, token: string): Session {
   const session = store.getSession(token);
 
   if (!session) {
-    throw new GigaiError(ErrorCode.SESSION_INVALID, "Invalid session token");
+    throw new KondError(ErrorCode.SESSION_INVALID, "Invalid session token");
   }
 
   if (session.expiresAt < Date.now()) {
-    throw new GigaiError(ErrorCode.SESSION_EXPIRED, "Session expired");
+    throw new KondError(ErrorCode.SESSION_EXPIRED, "Session expired");
   }
 
   return session;

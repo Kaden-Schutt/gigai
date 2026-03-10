@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
-import { GigaiError, ErrorCode, type GigaiConfig, type PairRequest, type ConnectRequest } from "@gigai/shared";
+import { KondError, ErrorCode, type KondConfig, type PairRequest, type ConnectRequest } from "@gigai/shared";
 import { generatePairingCode, validateAndPair } from "./pairing.js";
 import { connectWithToken } from "./session.js";
 import type { AuthStore } from "./store.js";
@@ -9,7 +9,7 @@ import type { AuthStore } from "./store.js";
 export function registerAuthRoutes(
   server: FastifyInstance,
   store: AuthStore,
-  config: GigaiConfig,
+  config: KondConfig,
 ) {
   const serverFingerprint = randomBytes(16).toString("hex");
   const serverName = config.serverName ?? hostname();
@@ -75,7 +75,7 @@ export function registerAuthRoutes(
   }, async (request) => {
     const remoteAddr = request.ip;
     if (remoteAddr !== "127.0.0.1" && remoteAddr !== "::1" && remoteAddr !== "::ffff:127.0.0.1") {
-      throw new GigaiError(ErrorCode.AUTH_REQUIRED, "Pairing code generation is only available from localhost");
+      throw new KondError(ErrorCode.AUTH_REQUIRED, "Pairing code generation is only available from localhost");
     }
     const code = generatePairingCode(store, config.auth.pairingTtlSeconds);
     return { code, expiresIn: config.auth.pairingTtlSeconds };

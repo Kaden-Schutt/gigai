@@ -86,7 +86,7 @@ export const SecurityConfigSchema = z.object({
   overrides: z.record(SecurityTierSchema).default({}),
 });
 
-export const GigaiConfigSchema = z.object({
+export const KondConfigSchema = z.object({
   serverName: z.string().optional(),
   server: ServerConfigSchema,
   auth: AuthConfigSchema,
@@ -104,4 +104,4 @@ export type SecurityTier = z.infer<typeof SecurityTierSchema>;
 export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
 export type AuthConfig = z.infer<typeof AuthConfigSchema>;
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
-export type GigaiConfig = z.infer<typeof GigaiConfigSchema>;
+export type KondConfig = z.infer<typeof KondConfigSchema>;

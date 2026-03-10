@@ -1,6 +1,6 @@
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
-import type { GigaiConfig } from "@gigai/shared";
+import type { KondConfig } from "@gigai/shared";
 import { CronScheduler } from "./scheduler.js";
 import { dirname } from "node:path";
 
