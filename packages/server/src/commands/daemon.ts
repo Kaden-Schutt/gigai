@@ -6,18 +6,25 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-function getGigaiBin(): string {
-  return process.argv[1] ?? "kond";
-}
-
-function getNodeBin(): string {
+function getKondBin(): string {
+  // Compiled binary: process.argv[1] is the first CLI arg, not a script path
+  // npm/node: process.argv[1] is the script path
+  const arg1 = process.argv[1];
+  if (arg1 && (arg1.endsWith(".js") || arg1.endsWith(".mjs"))) {
+    // Running via node — need node + script
+    return `${process.execPath} ${arg1}`;
+  }
+  // Compiled binary — just use the executable path
   return process.execPath;
 }
 
 function getLaunchdPlist(configPath: string): string {
-  const nodeBin = getNodeBin();
-  const bin = getGigaiBin();
+  const bin = getKondBin();
+  const binParts = bin.split(" ");
   const currentPath = process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin";
+  const programArgs = binParts
+    .map(p => `    <string>${p}</string>`)
+    .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -31,9 +38,9 @@ function getLaunchdPlist(configPath: string): string {
   </dict>
   <key>ProgramArguments</key>
   <array>
-    <string>${nodeBin}</string>
-    <string>${bin}</string>
+${programArgs}
     <string>start</string>
+    <string>--foreground</string>
     <string>--config</string>
     <string>${configPath}</string>
   </array>
@@ -53,14 +60,14 @@ function getLaunchdPlist(configPath: string): string {
 }
 
 function getSystemdUnit(configPath: string): string {
-  const bin = getGigaiBin();
+  const bin = getKondBin();
   return `[Unit]
 Description=kond server
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=${bin} start --config ${configPath}
+ExecStart=${bin} start --foreground --config ${configPath}
 Restart=always
 RestartSec=5
 WorkingDirectory=${homedir()}
