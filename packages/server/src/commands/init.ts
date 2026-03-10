@@ -149,7 +149,7 @@ async function scanMcpServers(
 }
 
 export async function runInit(): Promise<void> {
-  console.log("\n  gigai server setup\n");
+  console.log("\n  kond server setup\n");
 
   // 1. HTTPS provider
   const httpsProvider = await select({
@@ -175,7 +175,7 @@ export async function runInit(): Promise<void> {
     case "cloudflare": {
       const tunnelName = await input({
         message: "Cloudflare tunnel name:",
-        default: "gigai",
+        default: "kond",
       });
       const domain = await input({
         message: "Domain (optional):",
@@ -392,7 +392,7 @@ export async function runInit(): Promise<void> {
   };
 
   // 6. Write config
-  const configPath = resolve("gigai.config.json");
+  const configPath = resolve("kon.config.json");
   await writeFile(configPath, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
   console.log(`\n  Config written to: ${configPath}`);
 
@@ -404,7 +404,7 @@ export async function runInit(): Promise<void> {
       serverUrl = await ensureTailscaleFunnel(port);
     } catch (e) {
       console.error(`  ${(e as Error).message}`);
-      console.log("  You can enable Funnel later and run 'gigai start' manually.\n");
+      console.log("  You can enable Funnel later and run 'kond start' manually.\n");
     }
   } else if (httpsProvider === "cloudflare" && httpsConfig && "domain" in httpsConfig && httpsConfig.domain) {
     serverUrl = `https://${httpsConfig.domain}`;
@@ -423,7 +423,7 @@ export async function runInit(): Promise<void> {
   const serverArgs = ["start", "--config", configPath];
   if (!httpsConfig) serverArgs.push("--dev");
 
-  const child = spawn("gigai", serverArgs, {
+  const child = spawn("kond", serverArgs, {
     detached: true,
     stdio: "ignore",
     cwd: resolve("."),
@@ -462,7 +462,7 @@ export async function runInit(): Promise<void> {
 
   if (!code) {
     console.log("\n  Server is starting but not ready yet.");
-    console.log("  Run 'gigai pair' once it's up to get a pairing code.\n");
+    console.log("  Run 'kond pair' once it's up to get a pairing code.\n");
     return;
   }
 
@@ -476,5 +476,5 @@ export async function runInit(): Promise<void> {
   console.log(`  Then show me the skill file output so I can save it.`);
   console.log(`  ──────────────────────────────────────────────`);
   console.log(`\n  Pairing code expires in ${config.auth.pairingTtlSeconds / 60} minutes.`);
-  console.log(`  Run 'gigai pair' to generate a new one.\n`);
+  console.log(`  Run 'kond pair' to generate a new one.\n`);
 }

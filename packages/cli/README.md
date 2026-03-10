@@ -1,4 +1,4 @@
-# @schuttdev/gigai
+# @schuttdev/kond
 
 Server CLI for [Kon](https://github.com/Kaden-Schutt/kon) — runs on your machine and exposes tools to Claude over HTTPS.
 
@@ -7,29 +7,29 @@ Manages tool registration, MCP server wrapping, authentication, cron scheduling,
 ## Install
 
 ```bash
-npm install -g @schuttdev/gigai
+npm install -g @schuttdev/kond
 ```
 
 ## Quickstart
 
 ```bash
-gigai init       # interactive setup wizard
-gigai pair       # generate a pairing code for Claude
+kond init       # interactive setup wizard
+kond pair       # generate a pairing code for Claude
 ```
 
 ## Commands
 
 ```bash
-gigai start                  # start the server
-gigai stop                   # stop the server
-gigai status                 # check if running
-gigai pair                   # generate a new pairing code
-gigai install                # install as background service (launchd / systemd)
-gigai uninstall              # remove background service
-gigai mcp add <n> -- <cmd>   # add an MCP server
-gigai wrap cli|mcp|script    # add a tool interactively
-gigai unwrap <name>          # remove a tool
-gigai cron add ...           # schedule a task
+kond start                  # start the server
+kond stop                   # stop the server
+kond status                 # check if running
+kond pair                   # generate a new pairing code
+kond install                # install as background service (launchd / systemd)
+kond uninstall              # remove background service
+kond mcp add <n> -- <cmd>   # add an MCP server
+kond wrap cli|mcp|script    # add a tool interactively
+kond unwrap <name>          # remove a tool
+kond cron add ...           # schedule a task
 ```
 
 ## Documentation

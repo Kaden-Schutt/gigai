@@ -18,7 +18,7 @@ RUN npx turbo build
 # Stage 2: Production
 FROM node:20-alpine AS runtime
 
-RUN addgroup -S gigai && adduser -S gigai -G gigai
+RUN addgroup -S kond && adduser -S kond -G kond
 
 WORKDIR /app
 
@@ -35,10 +35,10 @@ COPY --from=builder /app/packages/cli/dist packages/cli/dist
 
 VOLUME /data
 
-ENV GIGAI_MODE=server
+ENV KON_MODE=server
 ENV NODE_ENV=production
 
-USER gigai
+USER kond
 
 EXPOSE 7443
 
@@ -46,4 +46,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:7443/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 ENTRYPOINT ["node", "packages/cli/dist/index.js"]
-CMD ["start", "--config", "/data/gigai.config.json"]
+CMD ["start", "--config", "/data/kon.config.json"]

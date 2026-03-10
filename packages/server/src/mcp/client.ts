@@ -20,7 +20,7 @@ export class McpClientWrapper {
     });
 
     this.client = new Client({
-      name: `gigai-${this.config.name}`,
+      name: `kond-${this.config.name}`,
       version: "0.1.0",
     });
 

@@ -25,24 +25,24 @@ export { CronScheduler, parseAtExpression, type CronJob } from "./cron/scheduler
 export async function stopServer() {
   const { execFileSync } = await import("node:child_process");
 
-  // Find gigai server processes
+  // Find kond server processes
   let pids: number[] = [];
   try {
-    const out = execFileSync("pgrep", ["-f", "gigai start"], { encoding: "utf8" });
+    const out = execFileSync("pgrep", ["-f", "kond start"], { encoding: "utf8" });
     pids = out.trim().split("\n").map(Number).filter(pid => pid && pid !== process.pid);
   } catch {
     // pgrep returns non-zero if no matches
   }
 
   if (pids.length === 0) {
-    console.log("No running gigai server found.");
+    console.log("No running kond server found.");
     return;
   }
 
   for (const pid of pids) {
     try {
       process.kill(pid, "SIGTERM");
-      console.log(`Stopped gigai server (PID ${pid})`);
+      console.log(`Stopped kond server (PID ${pid})`);
     } catch (e) {
       console.error(`Failed to stop PID ${pid}: ${(e as Error).message}`);
     }
@@ -60,14 +60,14 @@ export async function startServer() {
 
   const configFile = values.config as string | undefined;
   const config = await loadConfig(configFile);
-  const configPath = resolve(configFile ?? "gigai.config.json");
+  const configPath = resolve(configFile ?? "kon.config.json");
   const server = await createServer({ config, configPath, dev: values.dev as boolean });
 
   const port = config.server.port;
   const host = config.server.host;
 
   await server.listen({ port, host });
-  server.log.info(`gigai server listening on ${host}:${port}`);
+  server.log.info(`kond server listening on ${host}:${port}`);
 
   // Enable HTTPS provider
   let cfTunnel: ChildProcess | undefined;

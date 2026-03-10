@@ -9,8 +9,8 @@ dist/
 !.env.example
 coverage/
 tmp/
-gigai.config.json
-gigai.crons.json
-gigai-skill/
+kon.config.json
+kon.crons.json
+kon-skill/
 *.zip
 .worktrees/

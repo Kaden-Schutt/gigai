@@ -61,7 +61,7 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
 
   server.decorate("securityConfig", config.security);
 
-  // Register cron scheduler (needs configPath to find gigai.crons.json)
+  // Register cron scheduler (needs configPath to find kon.crons.json)
   if (configPath) {
     await server.register(cronPlugin, { configPath });
   }

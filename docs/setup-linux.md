@@ -112,16 +112,16 @@ nvm install 20
 
 Verify: `node --version` should show v20 or higher.
 
-## 5. Install gigai
+## 5. Install kond
 
 ```bash
-npm install -g @schuttdev/gigai
+npm install -g @schuttdev/kond
 ```
 
 If you get permission errors:
 
 ```bash
-sudo npm install -g @schuttdev/gigai
+sudo npm install -g @schuttdev/kond
 ```
 
 Or better, configure npm to use a user-local prefix:
@@ -131,44 +131,44 @@ mkdir -p ~/.npm-global
 npm config set prefix '~/.npm-global'
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
-npm install -g @schuttdev/gigai
+npm install -g @schuttdev/kond
 ```
 
 ## 6. Run the setup wizard
 
 ```bash
-gigai init
+kond init
 ```
 
 The wizard detects Tailscale and walks you through Funnel configuration, tool selection, permission scoping, and server startup. At the end it generates a prompt to paste into Claude.
 
 ## 7. Run as a systemd service
 
-To keep gigai running across reboots:
+To keep kond running across reboots:
 
 ```bash
-gigai install
+kond install
 ```
 
 This creates a systemd user service. To remove it:
 
 ```bash
-gigai uninstall
+kond uninstall
 ```
 
 You can also manage the service directly:
 
 ```bash
-systemctl --user status gigai
-systemctl --user restart gigai
-journalctl --user -u gigai -f    # view logs
+systemctl --user status kond
+systemctl --user restart kond
+journalctl --user -u kond -f    # view logs
 ```
 
 ## Firewall notes
 
 If you're running a firewall (ufw, firewalld, iptables), Tailscale Funnel handles its own connectivity — you don't need to open port 7443 on your firewall. Funnel traffic arrives through the Tailscale tunnel, not directly from the internet.
 
-However, if you're also accessing gigai from other devices on your tailnet (not through Funnel), you may need to allow port 7443 on the Tailscale interface:
+However, if you're also accessing kond from other devices on your tailnet (not through Funnel), you may need to allow port 7443 on the Tailscale interface:
 
 ```bash
 # ufw
@@ -198,7 +198,7 @@ You need to enable HTTPS certificates and add the Funnel node attribute in the T
 
 Don't use `sudo npm`. Configure a user-local prefix instead — see step 5.
 
-**gigai can't bind to port 7443**
+**kond can't bind to port 7443**
 
 On Linux, ports below 1024 require root. Port 7443 should be fine, but if something else is using it:
 
@@ -206,4 +206,4 @@ On Linux, ports below 1024 require root. Port 7443 should be fine, but if someth
 sudo lsof -i :7443
 ```
 
-Change the port in `gigai.config.json` if needed.
+Change the port in `kon.config.json` if needed.

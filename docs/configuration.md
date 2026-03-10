@@ -1,6 +1,6 @@
 # Tool Configuration
 
-Tools are defined in `gigai.config.json`. The setup wizard and `gigai wrap` commands manage this for you, but you can also edit the config directly.
+Tools are defined in `kon.config.json`. The setup wizard and `kond wrap` commands manage this for you, but you can also edit the config directly.
 
 ## Built-in tools
 
@@ -89,12 +89,12 @@ MCP servers can also include environment variables:
 **Via CLI (recommended):**
 
 ```bash
-gigai mcp add obsidian -- npx @mauricio.wolff/mcp-obsidian@latest ~/Documents/MyVault
-gigai wrap cli       # interactive
-gigai wrap mcp       # interactive
-gigai wrap script    # interactive
-gigai wrap import    # import from claude_desktop_config.json
-gigai unwrap <name>  # remove a tool
+kond mcp add obsidian -- npx @mauricio.wolff/mcp-obsidian@latest ~/Documents/MyVault
+kond wrap cli       # interactive
+kond wrap mcp       # interactive
+kond wrap script    # interactive
+kond wrap import    # import from claude_desktop_config.json
+kond unwrap <name>  # remove a tool
 ```
 
-**Via config:** Edit `gigai.config.json` directly, then restart the server.
+**Via config:** Edit `kon.config.json` directly, then restart the server.

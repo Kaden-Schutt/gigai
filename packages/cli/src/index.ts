@@ -6,7 +6,7 @@ async function requireServer(): Promise<typeof import("@gigai/server")> {
     return await import("@gigai/server");
   } catch {
     console.error("Server dependencies not installed.");
-    console.error("Run: npm install -g @schuttdev/gigai");
+    console.error("Run: npm install -g @schuttdev/kond");
     process.exit(1);
   }
 }
@@ -20,7 +20,7 @@ const initCommand = defineCommand({
 });
 
 const startCommand = defineCommand({
-  meta: { name: "start", description: "Start the gigai server" },
+  meta: { name: "start", description: "Start the kond server" },
   args: {
     config: { type: "string", alias: "c", description: "Config file path" },
     dev: { type: "boolean", description: "Development mode (no HTTPS)" },
@@ -36,24 +36,24 @@ const startCommand = defineCommand({
 });
 
 const stopCommand = defineCommand({
-  meta: { name: "stop", description: "Stop the running gigai server" },
+  meta: { name: "stop", description: "Stop the running kond server" },
   async run() {
     const { execFileSync } = await import("node:child_process");
     let pids: number[] = [];
     try {
-      const out = execFileSync("pgrep", ["-f", "gigai start"], { encoding: "utf8" });
+      const out = execFileSync("pgrep", ["-f", "kond start"], { encoding: "utf8" });
       pids = out.trim().split("\n").map(Number).filter(pid => pid && pid !== process.pid);
     } catch {
       // pgrep returns non-zero if no matches
     }
     if (pids.length === 0) {
-      console.log("No running gigai server found.");
+      console.log("No running kond server found.");
       return;
     }
     for (const pid of pids) {
       try {
         process.kill(pid, "SIGTERM");
-        console.log(`Stopped gigai server (PID ${pid})`);
+        console.log(`Stopped kond server (PID ${pid})`);
       } catch (e) {
         console.error(`Failed to stop PID ${pid}: ${(e as Error).message}`);
       }
@@ -161,7 +161,7 @@ const mcpCommand = defineCommand({
     add: defineCommand({
       meta: {
         name: "add",
-        description: "Add an MCP server (e.g. gigai mcp add <name> -- <command> [args...])",
+        description: "Add an MCP server (e.g. kond mcp add <name> -- <command> [args...])",
       },
       args: {
         name: {
@@ -179,15 +179,15 @@ const mcpCommand = defineCommand({
         const dashDashIdx = rawArgs.indexOf("--");
         if (dashDashIdx === -1 || dashDashIdx >= rawArgs.length - 1) {
           console.error(
-            "Usage: gigai mcp add <name> [--env KEY=VALUE ...] -- <command> [args...]",
+            "Usage: kond mcp add <name> [--env KEY=VALUE ...] -- <command> [args...]",
           );
           console.error(
             "\nExamples:");
           console.error(
-            "  gigai mcp add browser -- npx -y @anthropic-ai/mcp-server-puppeteer",
+            "  kond mcp add browser -- npx -y @anthropic-ai/mcp-server-puppeteer",
           );
           console.error(
-            "  gigai mcp add myserver --env API_KEY=abc123 -- uvx mcp-server",
+            "  kond mcp add myserver --env API_KEY=abc123 -- uvx mcp-server",
           );
           process.exitCode = 1;
           return;
@@ -272,7 +272,7 @@ const cronCommand = defineCommand({
     add: defineCommand({
       meta: {
         name: "add",
-        description: "Schedule a tool execution (e.g. gigai cron add \"0 9 * * *\" bash git pull)",
+        description: "Schedule a tool execution (e.g. kond cron add \"0 9 * * *\" bash git pull)",
       },
       args: {
         at: { type: "string", description: "Human-readable time (e.g. \"9:00 AM tomorrow\", \"in 30 minutes\")" },
@@ -283,8 +283,8 @@ const cronCommand = defineCommand({
         const rawArgs = process.argv;
         const addIdx = rawArgs.indexOf("add");
         if (addIdx === -1) {
-          console.error("Usage: gigai cron add [--at <time>] <tool> [args...]");
-          console.error("       gigai cron add \"0 9 * * *\" <tool> [args...]");
+          console.error("Usage: kond cron add [--at <time>] <tool> [args...]");
+          console.error("       kond cron add \"0 9 * * *\" <tool> [args...]");
           process.exitCode = 1;
           return;
         }
@@ -321,8 +321,8 @@ const cronCommand = defineCommand({
         }
 
         if (!schedule || !tool) {
-          console.error("Usage: gigai cron add \"0 9 * * *\" <tool> [args...]");
-          console.error("       gigai cron add --at \"9:00 AM tomorrow\" <tool> [args...]");
+          console.error("Usage: kond cron add \"0 9 * * *\" <tool> [args...]");
+          console.error("       kond cron add --at \"9:00 AM tomorrow\" <tool> [args...]");
           process.exitCode = 1;
           return;
         }
@@ -356,7 +356,7 @@ const cronCommand = defineCommand({
           if (job.nextRun) console.log(`  Next run: ${new Date(job.nextRun).toLocaleString()}`);
           if (oneShot) console.log(`  Type:     one-shot (will disable after execution)`);
         } catch {
-          console.error("Server is not running. Start it with: gigai start");
+          console.error("Server is not running. Start it with: kond start");
           process.exitCode = 1;
         }
       },
@@ -396,7 +396,7 @@ const cronCommand = defineCommand({
             }
           }
         } catch {
-          console.error("Server is not running. Start it with: gigai start");
+          console.error("Server is not running. Start it with: kond start");
           process.exitCode = 1;
         }
       },
@@ -421,7 +421,7 @@ const cronCommand = defineCommand({
 
           console.log(`Removed cron job ${args.id}`);
         } catch {
-          console.error("Server is not running. Start it with: gigai start");
+          console.error("Server is not running. Start it with: kond start");
           process.exitCode = 1;
         }
       },
@@ -432,15 +432,15 @@ const cronCommand = defineCommand({
 const versionCommand = defineCommand({
   meta: { name: "version", description: "Show version" },
   run() {
-    console.log(`gigai v${VERSION}`);
+    console.log(`kond v${VERSION}`);
   },
 });
 
 const main = defineCommand({
   meta: {
-    name: "gigai",
+    name: "kond",
     version: VERSION,
-    description: "gigai — bridge CLI tools to Claude",
+    description: "kond — bridge CLI tools to Claude",
   },
   subCommands: {
     init: initCommand,

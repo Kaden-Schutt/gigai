@@ -2,8 +2,8 @@ import { decodeJWTPayload } from "@gigai/shared";
 
 export function getOrgUUID(): string {
   // Explicit env var
-  if (process.env.GIGAI_ORG_UUID) {
-    return process.env.GIGAI_ORG_UUID;
+  if (process.env.KON_ORG_UUID) {
+    return process.env.KON_ORG_UUID;
   }
 
   // Extract from HTTP_PROXY / HTTPS_PROXY JWT (Claude code execution environment)
@@ -49,6 +49,6 @@ export function getOrgUUID(): string {
   }
 
   throw new Error(
-    "Cannot determine organization UUID. Set GIGAI_ORG_UUID environment variable.",
+    "Cannot determine organization UUID. Set KON_ORG_UUID environment variable.",
   );
 }

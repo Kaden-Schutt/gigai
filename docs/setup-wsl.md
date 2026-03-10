@@ -4,7 +4,7 @@ There are two ways to run Kon with Tailscale on WSL. Pick the one that fits your
 
 ## Option A: Tailscale inside WSL2 (recommended)
 
-Run everything — Tailscale, gigai, Node — entirely inside your WSL2 distro. This is the cleanest approach and doesn't require Tailscale on the Windows host.
+Run everything — Tailscale, kond, Node — entirely inside your WSL2 distro. This is the cleanest approach and doesn't require Tailscale on the Windows host.
 
 > Requires WSL2 (not WSL1). Check with `wsl --list --verbose`.
 
@@ -64,41 +64,41 @@ Test it:
 sudo tailscale funnel 7443
 ```
 
-### 4. Install Node.js and gigai
+### 4. Install Node.js and kond
 
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.bashrc
 nvm install 20
-npm install -g @schuttdev/gigai
+npm install -g @schuttdev/kond
 ```
 
 ### 5. Run the setup wizard
 
 ```bash
-gigai init
+kond init
 ```
 
-### 6. Keep gigai running
+### 6. Keep kond running
 
 WSL2 distros shut down when you close the terminal unless you configure them to persist.
 
 **Option 1: Keep a terminal open**
 
 ```bash
-gigai start
+kond start
 ```
 
 **Option 2: Background with nohup**
 
 ```bash
-nohup gigai start > ~/gigai.log 2>&1 &
+nohup kond start > ~/kond.log 2>&1 &
 ```
 
 **Option 3: systemd service (if systemd is enabled)**
 
 ```bash
-gigai install
+kond install
 ```
 
 **Option 4: Prevent WSL from shutting down**
@@ -113,9 +113,9 @@ vmIdleTimeout=-1
 
 ---
 
-## Option B: Tailscale on Windows, gigai in WSL
+## Option B: Tailscale on Windows, kond in WSL
 
-If you already have Tailscale running on your Windows host, you can use it to provide Funnel while running gigai inside WSL.
+If you already have Tailscale running on your Windows host, you can use it to provide Funnel while running kond inside WSL.
 
 ### 1. Tailscale on Windows
 
@@ -148,9 +148,9 @@ In PowerShell:
 tailscale funnel 7443
 ```
 
-### 4. Install and run gigai in WSL
+### 4. Install and run kond in WSL
 
-Follow the Linux guide from step 4 onward — install Node, install gigai, run the wizard.
+Follow the Linux guide from step 4 onward — install Node, install kond, run the wizard.
 
 ### Caveat
 

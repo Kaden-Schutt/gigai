@@ -18,7 +18,7 @@ export interface ClientConfig {
 }
 
 function getConfigDir(): string {
-  return process.env.GIGAI_CONFIG_DIR ?? join(homedir(), ".gigai");
+  return process.env.KON_CONFIG_DIR ?? join(homedir(), ".kon");
 }
 
 function getConfigPath(): string {
@@ -117,7 +117,7 @@ function normalizeUrl(url: string): string {
 export function getSkillConfigPath(): string | undefined {
   // Inside Claude code exec with skill installed
   try {
-    return "/mnt/skills/user/gigai/config.json";
+    return "/mnt/skills/user/kon/config.json";
   } catch {
     return undefined;
   }

@@ -14,7 +14,7 @@ interface TransferEntry {
 }
 
 const transfers = new Map<string, TransferEntry>();
-const TRANSFER_DIR = join(tmpdir(), "gigai-transfers");
+const TRANSFER_DIR = join(tmpdir(), "kon-transfers");
 const TRANSFER_TTL = 60 * 60 * 1000; // 1 hour
 
 // Cleanup expired transfers

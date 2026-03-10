@@ -2,8 +2,8 @@ export type GigaiMode = "client" | "server";
 
 export function detectMode(): GigaiMode {
   // Explicit override
-  if (process.env.GIGAI_MODE === "client") return "client";
-  if (process.env.GIGAI_MODE === "server") return "server";
+  if (process.env.KON_MODE === "client") return "client";
+  if (process.env.KON_MODE === "server") return "server";
 
   // Anthropic proxy env vars indicate code exec container
   if (

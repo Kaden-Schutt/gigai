@@ -58,7 +58,7 @@ if (firstArg && !firstArg.startsWith("-") && !KNOWN_COMMANDS.has(firstArg)) {
 
 function runCitty() {
   const pairCommand = defineCommand({
-    meta: { name: "pair", description: "Pair with a gigai server" },
+    meta: { name: "pair", description: "Pair with a kond server" },
     args: {
       code: { type: "positional", description: "Pairing code", required: true },
       server: { type: "positional", description: "Server URL", required: true },
@@ -314,7 +314,7 @@ function runCitty() {
     meta: {
       name: "kon",
       version: VERSION,
-      description: "kon — gigai client for Claude",
+      description: "kon — kond client for Claude",
     },
     subCommands: {
       pair: pairCommand,

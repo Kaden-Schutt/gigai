@@ -10,12 +10,12 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@schuttdev/kon"><img src="https://img.shields.io/npm/v/@schuttdev/kon?label=kon&color=orange" alt="kon npm" /></a>
-  <a href="https://www.npmjs.com/package/@schuttdev/gigai"><img src="https://img.shields.io/npm/v/@schuttdev/gigai?label=gigai&color=brown" alt="gigai npm" /></a>
+  <a href="https://www.npmjs.com/package/@schuttdev/kond"><img src="https://img.shields.io/npm/v/@schuttdev/kond?label=kond&color=brown" alt="kond npm" /></a>
 </p>
 
 ---
 
-Kon is a lightweight client that runs inside Claude's code execution sandbox. It connects over HTTPS to **gigai**, a server running on your machine that exposes tools — shell commands, filesystem access, MCP servers, scripts — through an authenticated API.
+Kon is a lightweight client that runs inside Claude's code execution sandbox. It connects over HTTPS to **kond**, a server daemon running on your machine that exposes tools — shell commands, filesystem access, MCP servers, scripts — through an authenticated API.
 
 <p align="center">
   <img src="assets/kon-demo.png" alt="Kon pairing demo" width="680" />
@@ -29,7 +29,7 @@ If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code), it ca
 
 ```
 /plugin install https://github.com/Kaden-Schutt/kon
-/kon:gigai-setup
+/kon:kond-setup
 ```
 
 Claude Code will walk you through everything below (and help you manage your server after). With [Claude Code remote control](https://docs.anthropic.com/en/docs/claude-code/remote-control), you can also add tools, change configs, and troubleshoot from your phone.
@@ -39,7 +39,7 @@ Claude Code will walk you through everything below (and help you manage your ser
 **Give Claude a browser.** Wrap [agent-browser](https://github.com/vercel-labs/agent-browser) as a CLI tool and Claude can navigate the web from your machine:
 
 ```bash
-gigai wrap cli
+kond wrap cli
 # name: agent-browser
 # command: npx agent-browser
 ```
@@ -47,16 +47,16 @@ gigai wrap cli
 **Connect your Obsidian vault.** Wrap an Obsidian MCP server and Claude can search and read your notes from anywhere:
 
 ```bash
-gigai mcp add obsidian -- npx @mauricio.wolff/mcp-obsidian@latest ~/Documents/MyVault
+kond mcp add obsidian -- npx @mauricio.wolff/mcp-obsidian@latest ~/Documents/MyVault
 ```
 
 **Wrap any CLI tool** — docker, kubectl, ffmpeg, whatever. It's now accessible from Claude on your phone.
 
-**Wrap any MCP server** — gigai proxies tool calls over REST. Your existing MCP servers now work from anywhere, not just Claude Desktop.
+**Wrap any MCP server** — kond proxies tool calls over REST. Your existing MCP servers now work from anywhere, not just Claude Desktop.
 
 **Import from Claude Desktop** — the setup wizard auto-detects your `claude_desktop_config.json` and offers to import everything.
 
-**Schedule tasks** — `gigai cron add --at "9:00 AM tomorrow" bash git pull`
+**Schedule tasks** — `kond cron add --at "9:00 AM tomorrow" bash git pull`
 
 ## Secure by default
 
@@ -83,8 +83,8 @@ Claude capabilities configured for code execution — go to **Settings > Capabil
 ### 1. Install and run the setup wizard
 
 ```bash
-npm install -g @schuttdev/gigai
-gigai init
+npm install -g @schuttdev/kond
+kond init
 ```
 
 ### 2. Paste into Claude
@@ -110,15 +110,15 @@ The wizard generates a prompt for your server — paste it into Claude. It will 
 
 ```bash
 # Server management
-gigai start                  # start the server
-gigai stop                   # stop the server
-gigai status                 # check if running
-gigai pair                   # generate a new pairing code
-gigai install                # install as background service (macOS launchd / Linux systemd)
-gigai mcp add <n> -- <cmd>   # add an MCP server
-gigai wrap cli|mcp|script    # add a tool interactively
-gigai unwrap <name>          # remove a tool
-gigai cron add ...           # schedule a task
+kond start                   # start the server
+kond stop                    # stop the server
+kond status                  # check if running
+kond pair                    # generate a new pairing code
+kond install                 # install as background service (macOS launchd / Linux systemd)
+kond mcp add <n> -- <cmd>    # add an MCP server
+kond wrap cli|mcp|script     # add a tool interactively
+kond unwrap <name>           # remove a tool
+kond cron add ...            # schedule a task
 
 # Client (runs in Claude's sandbox)
 kon <tool-name> [args...]    # execute any tool
@@ -129,7 +129,7 @@ kon connect <server-name>    # switch between servers
 
 ## Different approaches
 
-**Claude Code** gives you full tool access from a terminal with a Pro/Max subscription. Kon takes a different approach — it works with regular claude.ai, the chat interface anyone already uses. No subscription beyond the base plan, no terminal, no developer background needed. They complement each other well: Claude Code users can use the [Kon plugin](#quickstart-with-claude-code) to manage their server.
+**Claude Code** gives you full tool access from a terminal with a Pro/Max subscription. Kon takes a different approach — it works with regular claude.ai, the chat interface anyone already uses. No subscription beyond the base plan, no terminal, no developer background needed. They complement each other well: Claude Code users can use the [Kon plugin](#quickstart-with-claude-code) to manage their kond server.
 
 **Other remote tool projects** tend toward giving Claude broad access by default. Kon goes the other way: nothing is accessible unless you explicitly opt in. Different philosophies for different use cases.
 

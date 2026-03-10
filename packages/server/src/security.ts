@@ -162,7 +162,7 @@ const STANDARD_BLOCKED_PATHS = [
   ".ssh",
   ".gnupg",
   ".gpg",
-  ".config/gigai",
+  ".config/kon",
   ".aws",
   ".azure",
   ".gcloud",

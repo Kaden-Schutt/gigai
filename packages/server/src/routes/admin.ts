@@ -10,7 +10,7 @@ export async function adminRoutes(server: FastifyInstance) {
     try {
       const { stdout, stderr } = await execFileAsync(
         "npm",
-        ["install", "-g", "@schuttdev/gigai@latest"],
+        ["install", "-g", "@schuttdev/kond@latest"],
         { timeout: 120_000 },
       );
       server.log.info(`Update output: ${stdout}`);
@@ -43,7 +43,7 @@ export async function adminRoutes(server: FastifyInstance) {
       await server.close();
 
       // Spawn updated server
-      const child = spawn("gigai", args, {
+      const child = spawn("kond", args, {
         detached: true,
         stdio: "ignore",
         cwd: process.cwd(),

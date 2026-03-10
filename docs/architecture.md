@@ -7,13 +7,13 @@ kon/
 ├── packages/
 │   ├── shared/          @gigai/shared — types, crypto, config schemas
 │   ├── server/          @gigai/server — Fastify server, auth, tool registry, MCP pool
-│   ├── cli/             @schuttdev/gigai — server management CLI
+│   ├── cli/             @schuttdev/kond — server management CLI
 │   └── kon/             @schuttdev/kon — lightweight client CLI
 ├── skills/              Claude Code plugin
 ├── assets/              logo, icon
 ├── docs/                setup guides, configuration reference
 ├── docker/              Dockerfile + docker-compose
-└── gigai.config.example.json
+└── kon.config.example.json
 ```
 
 Monorepo with npm workspaces and turborepo. ESM-only, Node 20+.
@@ -21,7 +21,7 @@ Monorepo with npm workspaces and turborepo. ESM-only, Node 20+.
 ## How it works
 
 ```
-kon (Claude's sandbox)  ──HTTPS──>  gigai (your machine)
+kon (Claude's sandbox)  ──HTTPS──>  kond (your machine)
                                          │
                                          ├── read / write / edit (scoped filesystem)
                                          ├── bash (allowlisted commands)
@@ -34,7 +34,7 @@ kon (Claude's sandbox)  ──HTTPS──>  gigai (your machine)
 | Package | Where it runs | What it does |
 |---------|---------------|--------------|
 | [`@schuttdev/kon`](https://www.npmjs.com/package/@schuttdev/kon) | Claude's sandbox | Thin client, 5 dependencies total |
-| [`@schuttdev/gigai`](https://www.npmjs.com/package/@schuttdev/gigai) | Your machine | Server, tool management, HTTPS setup |
+| [`@schuttdev/kond`](https://www.npmjs.com/package/@schuttdev/kond) | Your machine | Server, tool management, HTTPS setup |
 
 ## Auth flow
 
@@ -49,10 +49,10 @@ The encrypted token is persistent — you pair once and it works indefinitely.
 ## Server internals
 
 - **Fastify** with plugin architecture (auth, registry, executor, MCP pool, cron)
-- **Tool registry** loads from `gigai.config.json`, provides lookup/list/detail
+- **Tool registry** loads from `kon.config.json`, provides lookup/list/detail
 - **Executor** uses `child_process.spawn` with `shell: false` — no shell injection possible
 - **MCP pool** manages MCP server processes (lazy start, health checks, auto-restart)
-- **Cron scheduler** runs a 30-second check loop, persists jobs to `gigai.crons.json`
+- **Cron scheduler** runs a 30-second check loop, persists jobs to `kon.crons.json`
 
 ## Multi-server routing
 
@@ -68,4 +68,4 @@ cd docker
 docker compose up -d
 ```
 
-Mount your config at `/data/gigai.config.json`. See [Docker setup guide](setup-docker.md) for Tailscale integration options.
+Mount your config at `/data/kon.config.json`. See [Docker setup guide](setup-docker.md) for Tailscale integration options.

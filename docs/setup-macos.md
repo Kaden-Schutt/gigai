@@ -69,10 +69,10 @@ This serves port 7443 over HTTPS at `https://<your-machine>.<tailnet>.ts.net/`. 
 
 > Funnel assigns your machine a stable HTTPS URL like `https://macbook-pro.tail1234.ts.net`. This URL is what Claude uses to reach your server.
 
-## 4. Install gigai
+## 4. Install kond
 
 ```bash
-npm install -g @schuttdev/gigai
+npm install -g @schuttdev/kond
 ```
 
 Requires Node.js 20+. If you need Node:
@@ -84,7 +84,7 @@ brew install node@20
 ## 5. Run the setup wizard
 
 ```bash
-gigai init
+kond init
 ```
 
 The wizard will:
@@ -96,24 +96,24 @@ The wizard will:
 
 ## 6. Run as a background service
 
-To keep gigai running after you close the terminal:
+To keep kond running after you close the terminal:
 
 ```bash
-gigai install
+kond install
 ```
 
-This creates a macOS launchd service that starts gigai on login. To remove it:
+This creates a macOS launchd service that starts kond on login. To remove it:
 
 ```bash
-gigai uninstall
+kond uninstall
 ```
 
 To manage manually:
 
 ```bash
-gigai start                  # start in foreground
-gigai stop                   # stop the server
-gigai status                 # check if running
+kond start                   # start in foreground
+kond stop                    # stop the server
+kond status                  # check if running
 ```
 
 ## Troubleshooting
@@ -128,7 +128,7 @@ If using Homebrew, make sure the daemon is running: `sudo tailscaled install-sys
 
 **Port 7443 already in use**
 
-Another process is using the port. Either stop it or configure gigai to use a different port in `gigai.config.json`:
+Another process is using the port. Either stop it or configure kond to use a different port in `kon.config.json`:
 
 ```json
 {

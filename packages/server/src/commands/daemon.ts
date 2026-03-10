@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 function getGigaiBin(): string {
-  return process.argv[1] ?? "gigai";
+  return process.argv[1] ?? "kond";
 }
 
 function getNodeBin(): string {
@@ -23,7 +23,7 @@ function getLaunchdPlist(configPath: string): string {
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.gigai.server</string>
+  <string>dev.schutt.kond</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
@@ -42,9 +42,9 @@ function getLaunchdPlist(configPath: string): string {
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>${join(homedir(), ".gigai", "server.log")}</string>
+  <string>${join(homedir(), ".kon", "server.log")}</string>
   <key>StandardErrorPath</key>
-  <string>${join(homedir(), ".gigai", "server.log")}</string>
+  <string>${join(homedir(), ".kon", "server.log")}</string>
   <key>WorkingDirectory</key>
   <string>${homedir()}</string>
 </dict>
@@ -55,7 +55,7 @@ function getLaunchdPlist(configPath: string): string {
 function getSystemdUnit(configPath: string): string {
   const bin = getGigaiBin();
   return `[Unit]
-Description=gigai server
+Description=kond server
 After=network.target
 
 [Service]
@@ -71,11 +71,11 @@ WantedBy=default.target
 }
 
 export async function installDaemon(configPath?: string): Promise<void> {
-  const config = resolve(configPath ?? "gigai.config.json");
+  const config = resolve(configPath ?? "kon.config.json");
   const os = platform();
 
   if (os === "darwin") {
-    const plistPath = join(homedir(), "Library", "LaunchAgents", "com.gigai.server.plist");
+    const plistPath = join(homedir(), "Library", "LaunchAgents", "dev.schutt.kond.plist");
     await writeFile(plistPath, getLaunchdPlist(config));
     console.log(`  Wrote launchd plist: ${plistPath}`);
 
@@ -86,11 +86,11 @@ export async function installDaemon(configPath?: string): Promise<void> {
       console.log(`  Load it with: launchctl load ${plistPath}`);
     }
 
-    console.log(`  Logs: ~/.gigai/server.log`);
+    console.log(`  Logs: ~/.kon/server.log`);
     console.log(`  Stop:  launchctl unload ${plistPath}`);
   } else if (os === "linux") {
     const unitDir = join(homedir(), ".config", "systemd", "user");
-    const unitPath = join(unitDir, "gigai.service");
+    const unitPath = join(unitDir, "kond.service");
     const { mkdir } = await import("node:fs/promises");
     await mkdir(unitDir, { recursive: true });
     await writeFile(unitPath, getSystemdUnit(config));
@@ -98,18 +98,18 @@ export async function installDaemon(configPath?: string): Promise<void> {
 
     try {
       await execFileAsync("systemctl", ["--user", "daemon-reload"]);
-      await execFileAsync("systemctl", ["--user", "enable", "--now", "gigai"]);
+      await execFileAsync("systemctl", ["--user", "enable", "--now", "kond"]);
       console.log("  Service enabled and started.");
     } catch {
-      console.log("  Enable it with: systemctl --user enable --now gigai");
+      console.log("  Enable it with: systemctl --user enable --now kond");
     }
 
-    console.log(`  Logs:   journalctl --user -u gigai -f`);
-    console.log(`  Stop:   systemctl --user stop gigai`);
-    console.log(`  Remove: systemctl --user disable gigai`);
+    console.log(`  Logs:   journalctl --user -u kond -f`);
+    console.log(`  Stop:   systemctl --user stop kond`);
+    console.log(`  Remove: systemctl --user disable kond`);
   } else {
     console.log("  Persistent daemon not supported on this platform.");
-    console.log("  Run 'gigai start' manually.");
+    console.log("  Run 'kond start' manually.");
   }
 }
 
@@ -117,7 +117,7 @@ export async function uninstallDaemon(): Promise<void> {
   const os = platform();
 
   if (os === "darwin") {
-    const plistPath = join(homedir(), "Library", "LaunchAgents", "com.gigai.server.plist");
+    const plistPath = join(homedir(), "Library", "LaunchAgents", "dev.schutt.kond.plist");
     try {
       await execFileAsync("launchctl", ["unload", plistPath]);
     } catch {}
@@ -130,9 +130,9 @@ export async function uninstallDaemon(): Promise<void> {
     }
   } else if (os === "linux") {
     try {
-      await execFileAsync("systemctl", ["--user", "disable", "--now", "gigai"]);
+      await execFileAsync("systemctl", ["--user", "disable", "--now", "kond"]);
     } catch {}
-    const unitPath = join(homedir(), ".config", "systemd", "user", "gigai.service");
+    const unitPath = join(homedir(), ".config", "systemd", "user", "kond.service");
     const { unlink } = await import("node:fs/promises");
     try {
       await unlink(unitPath);

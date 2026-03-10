@@ -1,10 +1,10 @@
 # Kon Setup: Docker
 
-Running gigai in Docker with Tailscale Funnel. Three approaches, from simplest to most self-contained.
+Running kond in Docker with Tailscale Funnel. Three approaches, from simplest to most self-contained.
 
 ## Option A: Host Tailscale + Docker port mapping (simplest)
 
-Run Tailscale on the host machine. Run gigai in a container with a published port. Point Funnel at the port.
+Run Tailscale on the host machine. Run kond in a container with a published port. Point Funnel at the port.
 
 This is the recommended approach if Tailscale is already running on your host (which it is if you followed any of the platform setup guides).
 
@@ -12,9 +12,9 @@ This is the recommended approach if Tailscale is already running on your host (w
 
 ```bash
 docker run -d \
-  --name gigai \
+  --name kond \
   -p 7443:7443 \
-  -v /path/to/gigai.config.json:/data/gigai.config.json \
+  -v /path/to/kon.config.json:/data/kon.config.json \
   ghcr.io/kaden-schutt/kon:latest
 ```
 
@@ -23,12 +23,12 @@ Or with docker compose:
 ```yaml
 # docker-compose.yml
 services:
-  gigai:
+  kond:
     image: ghcr.io/kaden-schutt/kon:latest
     ports:
       - "7443:7443"
     volumes:
-      - ./gigai.config.json:/data/gigai.config.json
+      - ./kon.config.json:/data/kon.config.json
     restart: unless-stopped
 ```
 
@@ -45,7 +45,7 @@ That's it. Funnel terminates HTTPS and forwards to the container's published por
 ### 3. Generate a pairing code
 
 ```bash
-docker exec gigai node /app/dist/index.js pair
+docker exec kond node /app/dist/index.js pair
 ```
 
 ### When to use this
@@ -58,7 +58,7 @@ docker exec gigai node /app/dist/index.js pair
 
 ## Option B: Tailscale sidecar container
 
-Run Tailscale as a separate container sharing the network namespace with the gigai container. Good for headless servers or VPS where you don't want Tailscale on the host.
+Run Tailscale as a separate container sharing the network namespace with the kond container. Good for headless servers or VPS where you don't want Tailscale on the host.
 
 ### 1. docker-compose.yml
 
@@ -66,7 +66,7 @@ Run Tailscale as a separate container sharing the network namespace with the gig
 services:
   tailscale:
     image: tailscale/tailscale:latest
-    hostname: gigai-server
+    hostname: kond-server
     environment:
       - TS_AUTHKEY=${TS_AUTHKEY}           # generate at https://login.tailscale.com/admin/settings/keys
       - TS_STATE_DIR=/var/lib/tailscale
@@ -82,11 +82,11 @@ services:
       - /dev/net/tun:/dev/net/tun
     restart: unless-stopped
 
-  gigai:
+  kond:
     image: ghcr.io/kaden-schutt/kon:latest
     network_mode: service:tailscale
     volumes:
-      - ./gigai.config.json:/data/gigai.config.json
+      - ./kon.config.json:/data/kon.config.json
     depends_on:
       - tailscale
     restart: unless-stopped
@@ -151,12 +151,12 @@ In your [Tailscale ACL file](https://login.tailscale.com/admin/acls/file), make 
 docker compose up -d
 ```
 
-The Tailscale container authenticates, establishes Funnel, and proxies HTTPS traffic to the gigai container.
+The Tailscale container authenticates, establishes Funnel, and proxies HTTPS traffic to the kond container.
 
 ### 6. Generate a pairing code
 
 ```bash
-docker compose exec gigai node /app/dist/index.js pair
+docker compose exec kond node /app/dist/index.js pair
 ```
 
 ### When to use this
@@ -173,9 +173,9 @@ The simplest Docker approach, but gives up container network isolation.
 
 ```bash
 docker run -d \
-  --name gigai \
+  --name kond \
   --network=host \
-  -v /path/to/gigai.config.json:/data/gigai.config.json \
+  -v /path/to/kon.config.json:/data/kon.config.json \
   ghcr.io/kaden-schutt/kon:latest
 ```
 
@@ -233,4 +233,4 @@ If both the host and sidecar are trying to run Tailscale, they'll conflict. Use 
 
 **Container can't reach the internet**
 
-Some Docker network configurations block outbound traffic. The gigai server needs outbound access if your tools require it (e.g., MCP servers that fetch from the web). Check your Docker network settings.
+Some Docker network configurations block outbound traffic. The kond server needs outbound access if your tools require it (e.g., MCP servers that fetch from the web). Check your Docker network settings.

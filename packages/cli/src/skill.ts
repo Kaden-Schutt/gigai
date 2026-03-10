@@ -4,20 +4,20 @@ import type { ClientConfig, ServerEntry } from "./config.js";
 import type { ToolDetail, McpToolInfo } from "@gigai/shared";
 
 const SKILL_MD = `---
-name: gigai
-description: Access tools on the user's machine via kon (gigai client)
+name: kon
+description: Access tools on the user's machine via kon (kond client)
 ---
 
-# gigai
+# kon
 
-You have access to tools running on the user's local machine through kon, the gigai client CLI. It proxies commands over HTTPS to a server on the user's machine.
+You have access to tools running on the user's local machine through kon, the kond client CLI. It proxies commands over HTTPS to a server on the user's machine.
 
 ## Setup (run once per conversation)
 
 \`\`\`bash
 npm install -g @schuttdev/kon 2>/dev/null
-mkdir -p ~/.gigai
-cp /mnt/skills/user/gigai/config.json ~/.gigai/config.json
+mkdir -p ~/.kon
+cp /mnt/skills/user/kon/config.json ~/.kon/config.json
 kon connect
 \`\`\`
 
@@ -144,7 +144,7 @@ The \`kon list\` response includes the server's platform. Use this to determine 
 
 export async function hasExistingSkill(): Promise<boolean> {
   try {
-    await readFile("/mnt/skills/user/gigai/config.json", "utf8");
+    await readFile("/mnt/skills/user/kon/config.json", "utf8");
     return true;
   } catch {
     return false;
@@ -273,7 +273,7 @@ export async function generateSkillZip(
 
   // Check for existing skill config (Claude code exec with skill installed)
   try {
-    const raw = await readFile("/mnt/skills/user/gigai/config.json", "utf8");
+    const raw = await readFile("/mnt/skills/user/kon/config.json", "utf8");
     const existing = JSON.parse(raw) as SkillConfig;
     if (existing.servers) {
       skillConfig = existing;
@@ -301,8 +301,8 @@ export async function generateSkillZip(
   const configJson = JSON.stringify(skillConfig, null, 2) + "\n";
 
   const entries: ZipEntry[] = [
-    { path: "gigai/SKILL.md", data: Buffer.from(SKILL_MD, "utf8") },
-    { path: "gigai/config.json", data: Buffer.from(configJson, "utf8") },
+    { path: "kon/SKILL.md", data: Buffer.from(SKILL_MD, "utf8") },
+    { path: "kon/config.json", data: Buffer.from(configJson, "utf8") },
   ];
 
   // Generate per-tool markdown files
@@ -310,7 +310,7 @@ export async function generateSkillZip(
     for (const tool of tools) {
       const md = generateToolMarkdown(tool);
       entries.push({
-        path: `gigai/tools/${tool.name}.md`,
+        path: `kon/tools/${tool.name}.md`,
         data: Buffer.from(md, "utf8"),
       });
     }
@@ -324,12 +324,12 @@ export async function writeSkillZip(zip: Buffer): Promise<string> {
   const outputsDir = "/mnt/user-data/outputs";
   try {
     await mkdir(outputsDir, { recursive: true });
-    const outPath = `${outputsDir}/gigai.zip`;
+    const outPath = `${outputsDir}/kon.zip`;
     await writeFile(outPath, zip);
     return outPath;
   } catch {
     // Not in Claude code exec — write to cwd
-    const outPath = "gigai.zip";
+    const outPath = "kon.zip";
     await writeFile(outPath, zip);
     return outPath;
   }

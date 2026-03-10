@@ -12,7 +12,7 @@ interface ManifestCache {
 }
 
 function getManifestPath(): string {
-  const dir = process.env.GIGAI_CONFIG_DIR ?? join(homedir(), ".gigai");
+  const dir = process.env.KON_CONFIG_DIR ?? join(homedir(), ".kon");
   return join(dir, "tool-manifest.json");
 }
 
@@ -32,7 +32,7 @@ export async function fetchTools(http: HttpClient): Promise<ToolSummary[]> {
 
   // Cache the result
   try {
-    const dir = process.env.GIGAI_CONFIG_DIR ?? join(homedir(), ".gigai");
+    const dir = process.env.KON_CONFIG_DIR ?? join(homedir(), ".kon");
     await mkdir(dir, { recursive: true });
     const cache: ManifestCache = { tools: res.tools, fetchedAt: Date.now() };
     await writeFile(getManifestPath(), JSON.stringify(cache));

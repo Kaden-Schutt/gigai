@@ -20,7 +20,7 @@ export async function connect(serverName?: string): Promise<ConnectResult> {
       throw new Error(
         available.length > 0
           ? `Unknown server "${serverName}". Available: ${available.join(", ")}`
-          : `No servers configured. Run 'gigai pair' first.`,
+          : `No servers configured. Run 'kond pair' first.`,
       );
     }
     config.activeServer = serverName;
@@ -29,7 +29,7 @@ export async function connect(serverName?: string): Promise<ConnectResult> {
 
   const active = getActiveEntry(config);
   if (!active) {
-    throw new Error("No server configured. Run 'gigai pair' first.");
+    throw new Error("No server configured. Run 'kond pair' first.");
   }
 
   const { name, entry } = active;

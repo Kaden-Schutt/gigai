@@ -33,7 +33,7 @@ function splitCommand(input: string): { command: string; args: string[] } {
 }
 
 async function loadConfigFile(path?: string): Promise<{ config: GigaiConfig; path: string }> {
-  const configPath = resolve(path ?? "gigai.config.json");
+  const configPath = resolve(path ?? "kon.config.json");
   const raw = await readFile(configPath, "utf8");
   const config = GigaiConfigSchema.parse(JSON.parse(raw));
   return { config, path: configPath };
@@ -238,7 +238,7 @@ export async function generateServerPairingCode(configPath?: string): Promise<vo
     console.log(`Expires in ${data.expiresIn / 60} minutes.`);
   } catch (e) {
     if ((e as Error).message.includes("fetch failed") || (e as Error).message.includes("ECONNREFUSED")) {
-      console.error("Server is not running. Start it with: gigai start");
+      console.error("Server is not running. Start it with: kond start");
     } else {
       console.error(`Error: ${(e as Error).message}`);
     }

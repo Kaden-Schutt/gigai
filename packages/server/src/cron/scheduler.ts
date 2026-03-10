@@ -204,7 +204,7 @@ export class CronScheduler {
     executor: ToolExecutor,
     log: FastifyBaseLogger,
   ) {
-    this.filePath = resolve(configDir, "gigai.crons.json");
+    this.filePath = resolve(configDir, "kon.crons.json");
     this.executor = executor;
     this.log = log;
   }
