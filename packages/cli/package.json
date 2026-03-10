@@ -6,23 +6,18 @@
   "bin": {
     "kond": "dist/index.js"
   },
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
   "files": [
-    "dist",
+    "dist/index.js",
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "test": "vitest run",
+    "build": "bun build src/index.ts --outfile dist/index.js --target node && printf '#!/usr/bin/env node\\n' | cat - dist/index.js > dist/_tmp.js && mv dist/_tmp.js dist/index.js",
+    "build:bin": "bun build --compile --target bun-darwin-arm64 src/index.ts --outfile dist/kond-darwin-arm64 && bun build --compile --target bun-darwin-x64 src/index.ts --outfile dist/kond-darwin-x64 && bun build --compile --target bun-linux-x64 src/index.ts --outfile dist/kond-linux-x64",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@gigai/shared": "*",
+    "@gigai/server": "*",
     "citty": "^0.1.6",
     "zod": "^3.22.0",
     "fastify": "^5.8.2",
@@ -32,13 +27,7 @@
     "fastify-plugin": "^5.0.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@inquirer/prompts": "^7.0.0",
-    "nanoid": "^5.0.0"
-  },
-  "devDependencies": {
-    "@gigai/shared": "*",
-    "@gigai/server": "*",
-    "tsup": "^8.0.1",
-    "typescript": "^5.3.3",
-    "vitest": "^1.2.0"
+    "nanoid": "^5.0.0",
+    "typescript": "^5.3.3"
   }
 }

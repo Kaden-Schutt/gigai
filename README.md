@@ -83,16 +83,15 @@ Claude capabilities configured for code execution — go to **Settings > Capabil
 ### 1. Install and run the setup wizard
 
 ```bash
-brew tap schuttdev/tap
-brew install kond
+curl -fsSL kond.schutt.dev | sh
 kond init
 ```
 
-Or with npm:
+Or via Homebrew / npm:
 
 ```bash
-npm install -g @schuttdev/kond
-kond init
+brew install schuttdev/tap/kond    # macOS
+npm install -g @schuttdev/kond     # any platform with Node 20+
 ```
 
 ### 2. Paste into Claude

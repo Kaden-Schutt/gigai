@@ -12,8 +12,8 @@ You are helping the user set up and manage their **kond server** — the backend
 
 Kon is a bridge that gives Claude access to local tools (CLI commands, MCP servers, scripts) from any platform. The architecture:
 
-- **kond** (server) — runs on the user's machine, registered as `@schuttdev/kond` on npm
-- **kon** (client) — runs in Claude's code execution container, registered as `@schuttdev/kon` on npm
+- **kond** (server) — runs on the user's machine. Install: `curl -fsSL kond.schutt.dev | sh` or `brew install schuttdev/tap/kond` or `npm i -g @schuttdev/kond`
+- **kon** (client) — runs in Claude's code execution container. Install: `curl -fsSL kon.schutt.dev | sh` or `npm i -g @schuttdev/kon`
 - Communication happens over HTTPS via Tailscale Funnel (recommended), Cloudflare Tunnel, or manual certs
 
 ## What you can help with

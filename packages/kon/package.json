@@ -7,25 +7,20 @@
   "bin": {
     "kon": "dist/index.js"
   },
-  "exports": {
-    ".": "./dist/index.js"
-  },
   "files": [
-    "dist",
+    "dist/index.js",
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "bun build src/index.ts --outfile dist/index.js --target node && printf '#!/usr/bin/env node\\n' | cat - dist/index.js > dist/_tmp.js && mv dist/_tmp.js dist/index.js",
+    "build:bin": "bun build --compile --target bun-linux-x64 src/index.ts --outfile dist/kon-linux-x64",
     "clean": "rm -rf dist"
-  },
-  "dependencies": {
-    "citty": "^0.1.6",
-    "zod": "^3.22.0",
-    "undici": "^6.0.0"
   },
   "devDependencies": {
     "@gigai/shared": "*",
-    "tsup": "^8.0.1",
+    "citty": "^0.1.6",
+    "zod": "^3.22.0",
+    "undici": "^6.0.0",
     "typescript": "^5.3.3"
   }
 }
