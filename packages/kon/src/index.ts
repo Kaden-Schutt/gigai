@@ -1,5 +1,5 @@
 import { defineCommand, runMain } from "citty";
-import { readConfig } from "../../cli/src/config.js";
+import { readConfig, getActiveEntry } from "../../cli/src/config.js";
 import { connect } from "../../cli/src/connect.js";
 import { pair } from "../../cli/src/pair.js";
 import { fetchTools, fetchToolDetail } from "../../cli/src/discover.js";
@@ -15,11 +15,23 @@ const KNOWN_COMMANDS = new Set([
   "upload", "download", "version", "skill", "cron", "--help", "-h",
 ]);
 
+// Resolve server home dir for tilde expansion
+async function getServerHomeDir(): Promise<string | undefined> {
+  try {
+    const config = await readConfig();
+    const active = getActiveEntry(config);
+    return active?.entry.homeDir;
+  } catch {
+    return undefined;
+  }
+}
+
 // Intercept unknown commands as dynamic tool execution
 const firstArg = process.argv[2];
 if (firstArg && !firstArg.startsWith("-") && !KNOWN_COMMANDS.has(firstArg)) {
   const toolName = firstArg;
-  const toolArgs = process.argv.slice(3).map(a => expandHome(a));
+  const serverHome = await getServerHomeDir();
+  const toolArgs = process.argv.slice(3).map(a => expandHome(a, serverHome));
 
   try {
     const { http } = await connect();
@@ -131,8 +143,9 @@ function runCitty() {
     },
     async run({ args }) {
       try {
+        const serverHome = await getServerHomeDir();
         const { http } = await connect();
-        await upload(http, expandHome(args.file as string));
+        await upload(http, expandHome(args.file as string, serverHome));
       } catch (e) {
         outputError(classifyError(e), (e as Error).message);
       }
@@ -148,7 +161,8 @@ function runCitty() {
     async run({ args }) {
       try {
         const { http } = await connect();
-        await download(http, args.id as string, expandHome(args.dest as string));
+        const serverHome = await getServerHomeDir();
+        await download(http, args.id as string, expandHome(args.dest as string, serverHome));
       } catch (e) {
         outputError(classifyError(e), (e as Error).message);
       }

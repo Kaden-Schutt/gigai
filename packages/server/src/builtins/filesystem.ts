@@ -8,7 +8,7 @@ import { resolve, relative, join, basename } from "node:path";
 import { realpath } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { GigaiError, ErrorCode } from "@gigai/shared";
-import { canAccessPath, type SecurityTier } from "../security.js";
+import { canAccessPath, expandTilde, type SecurityTier } from "../security.js";
 
 const MAX_OUTPUT_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_READ_SIZE = 2 * 1024 * 1024; // 2MB
@@ -18,7 +18,7 @@ export async function validatePath(
   allowedPaths: string[],
   tier: SecurityTier = "strict",
 ): Promise<string> {
-  const resolved = resolve(targetPath);
+  const resolved = resolve(expandTilde(targetPath));
   let real: string;
   try {
     real = await realpath(resolved);

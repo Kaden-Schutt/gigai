@@ -100,13 +100,14 @@ async function checkAndUpdateServer(
     const http = createHttpClient(serverUrl);
     const health = await http.get<HealthResponse>("/health");
 
-    // Cache platform info
-    if (health.platform || health.hostname) {
+    // Cache server info
+    if (health.platform || health.hostname || health.homeDir) {
       const config = await readConfig();
       for (const entry of Object.values(config.servers)) {
         if (normalizeUrl(entry.server) === normalizeUrl(serverUrl)) {
           entry.platform = health.platform;
           entry.hostname = health.hostname;
+          entry.homeDir = health.homeDir;
           break;
         }
       }

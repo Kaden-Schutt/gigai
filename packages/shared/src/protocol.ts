@@ -99,6 +99,7 @@ export interface HealthResponse {
   uptime: number;
   platform?: string;
   hostname?: string;
+  homeDir?: string;
 }
 
 // Errors

@@ -20,9 +20,10 @@ export function homePath(absolute: string): string {
   return absolute;
 }
 
-export function expandHome(path: string): string {
-  if (path === "~") return homedir();
-  if (path.startsWith("~/")) return homedir() + path.slice(1);
+export function expandHome(path: string, serverHomeDir?: string): string {
+  const home = serverHomeDir ?? homedir();
+  if (path === "~") return home;
+  if (path.startsWith("~/")) return home + path.slice(1);
   return path;
 }
 

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { GigaiError, ErrorCode } from "@gigai/shared";
-import { canExecuteCommand, canUseSudo, type SecurityTier } from "../security.js";
+import { canExecuteCommand, canUseSudo, validateCommandArgs, expandTilde, type SecurityTier } from "../security.js";
 
 export interface ShellConfig {
   allowlist?: string[];
@@ -29,14 +29,22 @@ export async function execCommandSafe(
     throw new GigaiError(ErrorCode.COMMAND_NOT_ALLOWED, check.reason!);
   }
 
+  // Argument check (block catastrophic patterns like rm -rf /)
+  const argCheck = validateCommandArgs(tier, command, args);
+  if (!argCheck.allowed) {
+    throw new GigaiError(ErrorCode.COMMAND_NOT_ALLOWED, argCheck.reason!);
+  }
+
   for (const arg of args) {
     if (arg.includes("\0")) {
       throw new GigaiError(ErrorCode.VALIDATION_ERROR, "Null byte in argument");
     }
   }
 
+  const expandedArgs = args.map(expandTilde);
+
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const child = spawn(command, expandedArgs, {
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });

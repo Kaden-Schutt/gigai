@@ -89,6 +89,64 @@ export function canExecuteCommand(
   }
 }
 
+// ── Destructive argument checks ──
+
+/** Paths that must never be recursively deleted */
+const PROTECTED_PATHS = new Set([
+  "/",
+  "/bin",
+  "/boot",
+  "/dev",
+  "/etc",
+  "/home",
+  "/lib",
+  "/opt",
+  "/proc",
+  "/root",
+  "/sbin",
+  "/sys",
+  "/usr",
+  "/var",
+  "/Users",
+  "/System",
+  "/Library",
+  "/Applications",
+]);
+
+function hasRecursiveFlag(args: string[]): boolean {
+  for (const a of args) {
+    if (a === "--") break;
+    if (a === "-r" || a === "-R" || a === "--recursive") return true;
+    if (a.startsWith("-") && !a.startsWith("--") && /[rR]/.test(a)) return true;
+  }
+  return false;
+}
+
+/**
+ * Block catastrophic argument patterns (e.g. rm -rf /).
+ * Applies to strict and standard tiers.
+ */
+export function validateCommandArgs(
+  tier: SecurityTier,
+  command: string,
+  args: string[],
+): { allowed: boolean; reason?: string } {
+  if (tier === "unrestricted") return { allowed: true };
+
+  if (command === "rm" && hasRecursiveFlag(args)) {
+    const home = homedir();
+    for (const arg of args) {
+      if (arg.startsWith("-")) continue;
+      const resolved = resolve(arg);
+      if (PROTECTED_PATHS.has(resolved) || resolved === home) {
+        return { allowed: false, reason: `Refusing to recursively remove critical path: ${resolved}` };
+      }
+    }
+  }
+
+  return { allowed: true };
+}
+
 export function canUseSudo(allowSudo?: boolean): { allowed: boolean; reason?: string } {
   if (allowSudo === false) return { allowed: false, reason: "sudo is not allowed" };
   return { allowed: true };
@@ -140,6 +198,14 @@ export function canAccessPath(
     case "unrestricted":
       return { allowed: true };
   }
+}
+
+// ── Path helpers ──
+
+export function expandTilde(p: string): string {
+  if (p === "~") return homedir();
+  if (p.startsWith("~/")) return homedir() + p.slice(1);
+  return p;
 }
 
 // ── Executor enforcement ──

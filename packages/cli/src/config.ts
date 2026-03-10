@@ -9,6 +9,7 @@ export interface ServerEntry {
   sessionExpiresAt?: number;
   platform?: string;
   hostname?: string;
+  homeDir?: string;
 }
 
 export interface ClientConfig {
