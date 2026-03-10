@@ -16,22 +16,154 @@ const initCommand = defineCommand({
   async run() {
     const { runInit } = await requireServer();
     await runInit();
+    process.exit(0);
   },
 });
+
+async function waitForKey(keys: string[], timeoutSec: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const { stdin, stdout } = process;
+    if (!stdin.isTTY) { resolve(null); return; }
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding("utf8");
+
+    let remaining = timeoutSec;
+    const line = `  This message will close in ${remaining}s. The server will keep running in the background.`;
+    stdout.write(line);
+
+    const tick = setInterval(() => {
+      remaining--;
+      stdout.clearLine(0);
+      stdout.cursorTo(0);
+      if (remaining <= 0) {
+        cleanup();
+        resolve(null);
+      } else {
+        stdout.write(`  This message will close in ${remaining}s. The server will keep running in the background.`);
+      }
+    }, 1000);
+
+    const onData = (ch: string) => {
+      const lower = ch.toLowerCase();
+      if (keys.includes(lower)) { cleanup(); resolve(lower); }
+      if (ch === "\x03") { cleanup(); resolve(null); } // ctrl+c
+    };
+
+    const cleanup = () => {
+      clearInterval(tick);
+      stdin.removeListener("data", onData);
+      stdin.setRawMode(false);
+      stdin.pause();
+      stdout.clearLine(0);
+      stdout.cursorTo(0);
+    };
+
+    stdin.on("data", onData);
+  });
+}
 
 const startCommand = defineCommand({
   meta: { name: "start", description: "Start the kond server" },
   args: {
     config: { type: "string", alias: "c", description: "Config file path" },
     dev: { type: "boolean", description: "Development mode (no HTTPS)" },
+    foreground: { type: "boolean", description: "Run in foreground (dies on exit)" },
   },
   async run({ args }) {
-    const { startServer } = await requireServer();
-    const extraArgs: string[] = [];
-    if (args.config) extraArgs.push("--config", args.config as string);
-    if (args.dev) extraArgs.push("--dev");
-    process.argv.push(...extraArgs);
-    await startServer();
+    const configArg = args.config as string | undefined;
+    const dev = args.dev as boolean | undefined;
+
+    // Foreground mode: run server directly in this process
+    if (args.foreground) {
+      const { startServer } = await requireServer();
+      const extraArgs: string[] = [];
+      if (configArg) extraArgs.push("--config", configArg);
+      if (dev) extraArgs.push("--dev");
+      process.argv.push(...extraArgs);
+      await startServer();
+      return;
+    }
+
+    // Background mode: spawn detached server process
+    const { spawn } = await import("node:child_process");
+    const { resolve } = await import("node:path");
+    const { homedir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { mkdirSync } = await import("node:fs");
+
+    const logDir = join(homedir(), ".kon");
+    try { mkdirSync(logDir, { recursive: true }); } catch {}
+    const logPath = join(logDir, "server.log");
+
+    const { openSync } = await import("node:fs");
+    const logFd = openSync(logPath, "a");
+
+    const spawnArgs = ["start", "--foreground"];
+    if (configArg) spawnArgs.push("--config", configArg);
+    if (dev) spawnArgs.push("--dev");
+
+    const child = spawn(process.argv[0] ?? "kond", spawnArgs, {
+      detached: true,
+      stdio: ["ignore", logFd, logFd],
+      cwd: resolve("."),
+      env: process.env,
+    });
+    child.unref();
+
+    // Wait for server to start
+    const port = 7443; // TODO: read from config
+    let started = false;
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      try {
+        const res = await fetch(`http://localhost:${port}/health`);
+        if (res.ok) { started = true; break; }
+      } catch {}
+    }
+
+    if (!started) {
+      console.log("  Server failed to start. Check logs: " + logPath);
+      process.exit(1);
+    }
+
+    console.log(`\n  Server started (PID ${child.pid})`);
+    console.log(`  Logs: ${logPath}`);
+    console.log(`  Stop: kond stop\n`);
+    console.log("  Press t to attach to terminal (dies on exit)");
+    console.log("  Press l to tail logs (server stays in background)\n");
+
+    const choice = await waitForKey(["t", "l"], 10);
+
+    if (choice === "t") {
+      // Kill background process, restart in foreground
+      try { process.kill(child.pid!, "SIGTERM"); } catch {}
+      await new Promise(r => setTimeout(r, 500));
+      console.log("  Switched to foreground mode. Ctrl+C to stop.\n");
+      const { startServer } = await requireServer();
+      const extraArgs: string[] = [];
+      if (configArg) extraArgs.push("--config", configArg);
+      if (dev) extraArgs.push("--dev");
+      process.argv.push(...extraArgs);
+      await startServer();
+      return;
+    }
+
+    if (choice === "l") {
+      // Tail the log file
+      console.log("  Tailing logs (Ctrl+C to exit, server keeps running)...\n");
+      const { spawn: spawnTail } = await import("node:child_process");
+      const tail = spawnTail("tail", ["-f", logPath], { stdio: "inherit" });
+      await new Promise<void>(r => {
+        tail.on("close", () => r());
+        process.on("SIGINT", () => { tail.kill(); r(); });
+      });
+      process.exit(0);
+    }
+
+    // Timeout — just exit, server stays running
+    console.log("");
+    process.exit(0);
   },
 });
 
