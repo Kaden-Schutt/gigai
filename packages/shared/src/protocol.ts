@@ -30,6 +30,7 @@ export interface ToolDetail extends ToolSummary {
   usage?: string;
   args?: ToolArg[];
   mcpTools?: McpToolInfo[];
+  helpOutput?: string;
 }
 
 export interface ToolArg {

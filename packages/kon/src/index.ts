@@ -8,7 +8,7 @@ import { upload, download } from "../../cli/src/transfer.js";
 import { output, outputError, homePath, expandHome, classifyError } from "../../cli/src/output.js";
 import { generateSkillZip, writeSkillZip } from "../../cli/src/skill.js";
 import { VERSION } from "../../cli/src/version.js";
-import type { ToolDetail } from "@gigai/shared";
+import type { HealthResponse } from "@gigai/shared";
 
 const KNOWN_COMMANDS = new Set([
   "pair", "connect", "list", "help", "status",
@@ -182,13 +182,10 @@ function runCitty() {
       try {
         const { http } = await connect();
 
-        const tools = await fetchTools(http);
-        const toolDetails: ToolDetail[] = await Promise.all(
-          tools.map(async (t) => {
-            const { tool } = await fetchToolDetail(http, t.name);
-            return tool;
-          }),
-        );
+        const [health, tools] = await Promise.all([
+          http.get<HealthResponse>("/health"),
+          fetchTools(http),
+        ]);
 
         const config = await readConfig();
         const activeServer = config.activeServer;
@@ -196,11 +193,12 @@ function runCitty() {
           throw new Error("No active server. Run 'kon connect' first.");
         }
         const entry = config.servers[activeServer];
+        const serverCount = Object.keys(config.servers).length;
 
-        const zip = await generateSkillZip(activeServer, entry.server, entry.token, toolDetails);
+        const zip = await generateSkillZip(activeServer, entry.server, entry.token, tools, health, serverCount);
         const outPath = await writeSkillZip(zip);
 
-        output({ skillPath: homePath(outPath), toolCount: toolDetails.length });
+        output({ skillPath: homePath(outPath), toolCount: tools.length });
       } catch (e) {
         outputError(classifyError(e), (e as Error).message);
       }

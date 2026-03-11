@@ -23,7 +23,6 @@ export const cronPlugin = fp(async (server: FastifyInstance, opts: { configPath:
       // We replicate the pattern here for simplicity.
       const { execCommandSafe } = await import("../builtins/shell.js");
       const {
-        readFileSafe, listDirSafe, searchFilesSafe,
         readBuiltin, writeBuiltin, editBuiltin,
         globBuiltin, grepBuiltin,
       } = await import("../builtins/filesystem.js");
@@ -31,16 +30,6 @@ export const cronPlugin = fp(async (server: FastifyInstance, opts: { configPath:
       const builtinConfig = (entry.config as any).config ?? {};
 
       switch ((entry.config as any).builtin) {
-        case "filesystem": {
-          const allowedPaths = (builtinConfig.allowedPaths as string[]) ?? ["."];
-          const sub = args[0];
-          const target = args[1] ?? ".";
-          if (sub === "read") await readFileSafe(target, allowedPaths);
-          else if (sub === "list") await listDirSafe(target, allowedPaths);
-          else if (sub === "search") await searchFilesSafe(target, args[2] ?? ".*", allowedPaths);
-          break;
-        }
-        case "shell":
         case "bash": {
           const allowlist = (builtinConfig.allowlist as string[]) ?? [];
           const allowSudo = (builtinConfig.allowSudo as boolean) ?? false;

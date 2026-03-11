@@ -38,7 +38,7 @@ export async function toolRoutes(server: FastifyInstance) {
 
   server.get<{ Params: { name: string } }>("/tools/:name", async (request) => {
     const { name } = request.params;
-    const detail = server.registry.getDetail(name);
+    const detail = await server.registry.getDetailWithHelp(name);
 
     // If it's an MCP tool, attach MCP tool list
     const entry = server.registry.get(name);

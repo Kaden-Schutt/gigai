@@ -2,7 +2,6 @@ import type { FastifyInstance } from "fastify";
 import type { ExecRequest, ExecMcpRequest } from "@gigai/shared";
 import { KondError, ErrorCode } from "@gigai/shared";
 import {
-  readFileSafe, listDirSafe, searchFilesSafe,
   readBuiltin, writeBuiltin, editBuiltin,
   globBuiltin, grepBuiltin,
 } from "../builtins/filesystem.js";
@@ -83,38 +82,6 @@ async function handleBuiltin(
   const builtinConfig = config.config ?? {};
 
   switch (config.builtin) {
-    // Legacy combined filesystem tool
-    case "filesystem": {
-      const allowedPaths = builtinConfig.allowedPaths as string[] | undefined;
-      const subcommand = args[0];
-      const target = args[1] ?? ".";
-
-      switch (subcommand) {
-        case "read":
-          return { stdout: await readFileSafe(target, allowedPaths ?? [], tier), stderr: "", exitCode: 0, durationMs: 0 };
-        case "list":
-          return { stdout: JSON.stringify(await listDirSafe(target, allowedPaths ?? [], tier), null, 2), stderr: "", exitCode: 0, durationMs: 0 };
-        case "search":
-          return { stdout: JSON.stringify(await searchFilesSafe(target, args[2] ?? ".*", allowedPaths ?? [], tier), null, 2), stderr: "", exitCode: 0, durationMs: 0 };
-        default:
-          throw new KondError(ErrorCode.VALIDATION_ERROR, `Unknown filesystem subcommand: ${subcommand}. Use: read, list, search`);
-      }
-    }
-
-    // Legacy shell tool
-    case "shell": {
-      const allowlist = builtinConfig.allowlist as string[] | undefined;
-      const allowSudo = builtinConfig.allowSudo as boolean | undefined;
-      const command = args[0];
-      if (!command) {
-        throw new KondError(ErrorCode.VALIDATION_ERROR, "No command specified");
-      }
-      const result = await execCommandSafe(command, args.slice(1), { allowlist, allowSudo }, tier);
-      return { ...result, durationMs: 0 };
-    }
-
-    // --- New builtins ---
-
     case "read": {
       const allowedPaths = builtinConfig.allowedPaths as string[] | undefined;
       return { ...await readBuiltin(args, allowedPaths ?? [], tier), durationMs: 0 };

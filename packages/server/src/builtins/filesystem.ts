@@ -2,9 +2,8 @@ import {
   readFile as fsReadFile,
   writeFile as fsWriteFile,
   readdir,
-  stat,
 } from "node:fs/promises";
-import { resolve, relative, join, basename } from "node:path";
+import { resolve, relative, join } from "node:path";
 import { realpath } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { KondError, ErrorCode } from "@gigai/shared";
@@ -35,63 +34,6 @@ export async function validatePath(
   return real;
 }
 
-// --- Legacy filesystem builtin (read/list/search subcommands) ---
-
-export async function readFileSafe(
-  path: string,
-  allowedPaths: string[],
-  tier: SecurityTier = "strict",
-): Promise<string> {
-  const safePath = await validatePath(path, allowedPaths, tier);
-  return fsReadFile(safePath, "utf8");
-}
-
-export async function listDirSafe(
-  path: string,
-  allowedPaths: string[],
-  tier: SecurityTier = "strict",
-): Promise<Array<{ name: string; type: "file" | "directory" }>> {
-  const safePath = await validatePath(path, allowedPaths, tier);
-  const entries = await readdir(safePath, { withFileTypes: true });
-  return entries.map((e) => ({
-    name: e.name,
-    type: e.isDirectory() ? "directory" as const : "file" as const,
-  }));
-}
-
-export async function searchFilesSafe(
-  path: string,
-  pattern: string,
-  allowedPaths: string[],
-  tier: SecurityTier = "strict",
-): Promise<string[]> {
-  const safePath = await validatePath(path, allowedPaths, tier);
-  const results: string[] = [];
-  let regex: RegExp;
-  try {
-    regex = new RegExp(pattern, "i");
-  } catch {
-    throw new KondError(ErrorCode.VALIDATION_ERROR, `Invalid search pattern: ${pattern}`);
-  }
-
-  async function walk(dir: string): Promise<void> {
-    const entries = await readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = join(dir, entry.name);
-      if (regex.test(entry.name)) {
-        results.push(relative(safePath, fullPath));
-      }
-      if (entry.isDirectory()) {
-        await walk(fullPath);
-      }
-    }
-  }
-
-  await walk(safePath);
-  return results;
-}
-
-// --- New builtins ---
 
 /**
  * Read a file with optional offset/limit (line-based).

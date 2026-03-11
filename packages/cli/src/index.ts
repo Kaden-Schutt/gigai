@@ -108,7 +108,7 @@ const startCommand = defineCommand({
     const { join } = await import("node:path");
     const { mkdirSync } = await import("node:fs");
 
-    const logDir = join(homedir(), ".kon");
+    const logDir = join(homedir(), ".kond");
     try { mkdirSync(logDir, { recursive: true }); } catch {}
     const logPath = join(logDir, "server.log");
 

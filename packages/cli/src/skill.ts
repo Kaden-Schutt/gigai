@@ -1,295 +1,105 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
-import type { ClientConfig, ServerEntry } from "./config.js";
-import type { ToolDetail, McpToolInfo } from "@gigai/shared";
+import type { ToolSummary, HealthResponse } from "@gigai/shared";
 
-const SKILL_MD = `---
-name: kon
-description: Access tools on the user's machine via kon (kond client)
----
-
-# kon
-
-You have access to tools running on the user's local machine through kon, the kond client CLI. It proxies commands over HTTPS to a server on the user's machine.
-
-## Setup (run once per conversation)
-
-\`\`\`bash
-curl -fsSL https://kon.schutt.dev | sh
-mkdir -p ~/.kon
-cp /mnt/skills/user/kon/config.json ~/.kon/config.json
-kon connect
-\`\`\`
-
-If \`kon connect\` succeeds, you are ready to use tools. If it fails, tell the user.
-
-## Discovering tools
-
-List all available tools:
-\`\`\`bash
-kon list
-\`\`\`
-
-Get detailed help for a specific tool:
-\`\`\`bash
-kon help <tool-name>
-\`\`\`
-
-## Core tools
-
-These tools may be available depending on the server's configuration. Run \`kon list\` to see what's enabled.
-
-### read — Read file contents
-\`\`\`bash
-kon read <file> [offset] [limit]
-\`\`\`
-- \`offset\`: start from this line number (0-based)
-- \`limit\`: max number of lines to return
-
-### write — Write content to a file
-\`\`\`bash
-kon write <file> <content>
-\`\`\`
-
-### edit — Replace text in a file
-\`\`\`bash
-kon edit <file> <old_string> <new_string> [--all]
-\`\`\`
-- Without \`--all\`: fails if old_string matches multiple locations (provide more context)
-- With \`--all\`: replaces every occurrence
-
-### glob — Find files by pattern
-\`\`\`bash
-kon glob <pattern> [path]
-\`\`\`
-- Supports \`*\`, \`**\`, \`?\`, \`{a,b}\` syntax
-- Example: \`kon glob "**/*.ts" ~/projects/myapp\`
-
-### grep — Search file contents
-\`\`\`bash
-kon grep <pattern> [path] [--glob <filter>] [-i] [-n] [-C <num>]
-\`\`\`
-- Uses ripgrep if available, falls back to built-in search
-- Example: \`kon grep "TODO" ~/projects --glob "*.ts"\`
-
-### shell — Execute commands
-\`\`\`bash
-kon shell <command> [args...]
-\`\`\`
-- Run a command on the user's machine
-- Example: \`kon shell git status\`
-
-### File transfer
-\`\`\`bash
-kon upload <file>
-kon download <id> <dest>
-\`\`\`
-
-## Other tools
-
-The server may have additional tools registered (CLI commands, MCP servers, scripts). Any unknown subcommand is treated as a tool name:
-
-\`\`\`bash
-kon <tool-name> [args...]
-\`\`\`
-
-For MCP tools, the first arg is the MCP tool name:
-\`\`\`bash
-kon <mcp-tool> <mcp-action> [json-args]
-\`\`\`
-
-## Scheduling tasks
-
-Schedule any tool execution on the server:
-\`\`\`bash
-kon cron add "0 9 * * *" shell git pull              # daily at 9am
-kon cron add --at "9:00 AM tomorrow" shell git pull   # one-shot
-kon cron add --at "in 30 minutes" read ~/log.txt     # relative time
-kon cron list                                        # list scheduled jobs
-kon cron remove <id>                                 # remove a job
-\`\`\`
-
-## Multiple servers
-
-The user may have multiple servers configured (e.g. a Mac and a Linux machine). Use \`kon status\` to see all servers and which is active.
-
-\`\`\`bash
-kon status                    # show all servers + active
-kon connect <server-name>     # switch to a different server
-kon list                      # list tools on the current server
-\`\`\`
-
-**Routing between servers:** When a tool is not available on the current server, or when a task requires a specific platform (e.g. iMessage requires macOS), switch to the appropriate server:
-
-1. Run \`kon status\` to see available servers
-2. Run \`kon connect <server-name>\` to switch
-3. Run \`kon list\` to verify the tool is available
-4. Execute the command
-
-Platform-specific capabilities:
-- **iMessage**: only available on macOS servers
-- **macOS apps** (Shortcuts, AppleScript): only on macOS servers
-- **systemd, apt, etc.**: only on Linux servers
-
-The \`kon list\` response includes the server's platform. Use this to determine which server to route a request to.
-
-## Important
-
-- Always run the setup block before first use in a new conversation
-- All commands execute on the **user's machine**, not in this sandbox
-- If you get auth errors, run \`kon connect\` to refresh the session
-- Tools are scoped to what the user has configured — if a tool is missing, tell the user
-- If you have multiple servers, check which server has the tool you need before executing
-`;
-
-export async function hasExistingSkill(): Promise<boolean> {
-  try {
-    await readFile("/mnt/skills/user/kon/config.json", "utf8");
-    return true;
-  } catch {
-    return false;
-  }
+function platformLabel(p?: string): string {
+  if (!p) return "unknown";
+  if (p === "darwin") return "macOS";
+  if (p === "linux") return "Linux";
+  if (p === "win32") return "Windows";
+  return p;
 }
+
+export function generateSkillMd(
+  health: HealthResponse,
+  tools: ToolSummary[],
+  serverCount: number,
+): string {
+  const lines: string[] = [];
+
+  lines.push("---");
+  lines.push("name: kon");
+  lines.push("description: Access tools on the user's machine via kon (kond client)");
+  lines.push("---");
+  lines.push("");
+  lines.push("# kon");
+  lines.push("");
+  lines.push(`Connected to **${health.hostname}** (${platformLabel(health.platform)}, kond v${health.version})`);
+  lines.push("");
+
+  // Setup
+  lines.push("## Setup (run once per conversation)");
+  lines.push("");
+  lines.push("```bash");
+  lines.push("curl -fsSL https://kon.schutt.dev | sh");
+  lines.push("mkdir -p ~/.kon");
+  lines.push("cp /mnt/skills/user/kon/config.json ~/.kon/config.json");
+  lines.push("kon connect");
+  lines.push("```");
+  lines.push("");
+
+  // Tool index
+  lines.push("## Available tools");
+  lines.push("");
+  lines.push("| Tool | Type | Description |");
+  lines.push("|------|------|-------------|");
+  for (const t of tools) {
+    lines.push(`| ${t.name} | ${t.type} | ${t.description} |`);
+  }
+  lines.push("");
+
+  // Usage hint
+  lines.push("Run `kon help <tool-name>` to get full usage, arguments, and schemas before calling unfamiliar tools. Builtins (bash, read, write, edit, glob, grep) follow standard Claude Code conventions and generally don't need help lookup.");
+  lines.push("");
+
+  // Multi-server
+  if (serverCount > 1) {
+    lines.push("## Multiple servers");
+    lines.push("");
+    lines.push("```bash");
+    lines.push("kon status                    # show all servers + active");
+    lines.push("kon connect <server-name>     # switch to a different server");
+    lines.push("```");
+    lines.push("");
+    lines.push("Switch servers when a task requires a specific platform (e.g. iMessage requires macOS, systemd requires Linux).");
+    lines.push("");
+  }
+
+  // Important
+  lines.push("## Important");
+  lines.push("");
+  lines.push("- Always run the setup block before first use in a new conversation");
+  lines.push("- All commands execute on the **user's machine**, not in this sandbox");
+  lines.push("- If you get auth errors, run `kon connect` to refresh the session");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+// --- Skill zip generation ---
 
 interface SkillConfig {
   activeServer?: string;
   servers: Record<string, { server: string; token: string }>;
 }
 
-export function generateToolMarkdown(tool: ToolDetail): string {
-  const lines: string[] = [];
-
-  // YAML frontmatter
-  lines.push("---");
-  lines.push(`name: ${tool.name}`);
-  lines.push(`description: ${tool.description}`);
-  lines.push("---");
-  lines.push("");
-
-  // Header
-  lines.push(`# ${tool.name}`);
-  lines.push("");
-  lines.push(`**Type:** ${tool.type}`);
-  lines.push("");
-  lines.push(tool.description);
-  lines.push("");
-
-  // Usage section
-  lines.push("## Usage");
-  lines.push("");
-
-  if (tool.type === "builtin") {
-    // Builtin tools have specific usage patterns
-    switch (tool.name) {
-      case "fs":
-        lines.push("```bash");
-        lines.push(`kon fs read <file>`);
-        lines.push(`kon fs list <path>`);
-        lines.push(`kon fs search <path> [pattern]`);
-        lines.push("```");
-        break;
-      case "read":
-        lines.push("```bash");
-        lines.push("kon read <file> [offset] [limit]");
-        lines.push("```");
-        break;
-      case "write":
-        lines.push("```bash");
-        lines.push("kon write <file> <content>");
-        lines.push("```");
-        break;
-      case "edit":
-        lines.push("```bash");
-        lines.push("kon edit <file> <old_string> <new_string> [--all]");
-        lines.push("```");
-        break;
-      case "glob":
-        lines.push("```bash");
-        lines.push('kon glob <pattern> [path]');
-        lines.push("```");
-        break;
-      case "grep":
-        lines.push("```bash");
-        lines.push("kon grep <pattern> [path] [--glob <filter>] [-i] [-n] [-C <num>]");
-        lines.push("```");
-        break;
-      case "shell":
-        lines.push("```bash");
-        lines.push("kon shell <command> [args...]");
-        lines.push("```");
-        break;
-      default:
-        lines.push("```bash");
-        lines.push(`kon ${tool.name} [args...]`);
-        lines.push("```");
-    }
-  } else if (tool.type === "mcp") {
-    lines.push("```bash");
-    lines.push(`kon ${tool.name} <mcp-tool-name> [json-args]`);
-    lines.push("```");
-  } else {
-    // CLI and script tools
-    lines.push("```bash");
-    lines.push(`kon ${tool.name} [args...]`);
-    lines.push("```");
-  }
-
-  lines.push("");
-
-  // Arguments section (if present)
-  if (tool.args && tool.args.length > 0) {
-    lines.push("## Arguments");
-    lines.push("");
-    for (const arg of tool.args) {
-      const req = arg.required ? " *(required)*" : "";
-      const def = arg.default ? ` (default: \`${arg.default}\`)` : "";
-      lines.push(`- \`${arg.name}\`${req}: ${arg.description}${def}`);
-    }
-    lines.push("");
-  }
-
-  // MCP tools section
-  if (tool.type === "mcp" && tool.mcpTools && tool.mcpTools.length > 0) {
-    lines.push("## Available MCP Tools");
-    lines.push("");
-    for (const mcpTool of tool.mcpTools) {
-      lines.push(`### ${mcpTool.name}`);
-      lines.push("");
-      lines.push(mcpTool.description);
-      lines.push("");
-      lines.push("**Input Schema:**");
-      lines.push("");
-      lines.push("```json");
-      lines.push(JSON.stringify(mcpTool.inputSchema, null, 2));
-      lines.push("```");
-      lines.push("");
-    }
-  }
-
-  return lines.join("\n");
-}
-
 export async function generateSkillZip(
   serverName: string,
   serverUrl: string,
   token: string,
-  tools?: ToolDetail[],
+  tools: ToolSummary[],
+  health: HealthResponse,
+  serverCount: number,
 ): Promise<Buffer> {
-  // Build the skill config, merging with existing if available
   let skillConfig: SkillConfig = { servers: {} };
 
-  // Check for existing skill config (Claude code exec with skill installed)
   try {
     const raw = await readFile("/mnt/skills/user/kon/config.json", "utf8");
     const existing = JSON.parse(raw) as SkillConfig;
     if (existing.servers) {
       skillConfig = existing;
     }
-  } catch {
-    // No existing skill — fresh config
-  }
+  } catch {}
 
-  // Merge: check if URL matches existing entry
   let merged = false;
   for (const [name, entry] of Object.entries(skillConfig.servers)) {
     if (normalizeHost(entry.server) === normalizeHost(serverUrl)) {
@@ -306,28 +116,17 @@ export async function generateSkillZip(
   }
 
   const configJson = JSON.stringify(skillConfig, null, 2) + "\n";
+  const skillMd = generateSkillMd(health, tools, serverCount);
 
   const entries: ZipEntry[] = [
-    { path: "kon/SKILL.md", data: Buffer.from(SKILL_MD, "utf8") },
+    { path: "kon/SKILL.md", data: Buffer.from(skillMd, "utf8") },
     { path: "kon/config.json", data: Buffer.from(configJson, "utf8") },
   ];
-
-  // Generate per-tool markdown files
-  if (tools && tools.length > 0) {
-    for (const tool of tools) {
-      const md = generateToolMarkdown(tool);
-      entries.push({
-        path: `kon/tools/${tool.name}.md`,
-        data: Buffer.from(md, "utf8"),
-      });
-    }
-  }
 
   return createZip(entries);
 }
 
 export async function writeSkillZip(zip: Buffer): Promise<string> {
-  // Inside Claude code exec: write to outputs dir
   const outputsDir = "/mnt/user-data/outputs";
   try {
     await mkdir(outputsDir, { recursive: true });
@@ -335,7 +134,6 @@ export async function writeSkillZip(zip: Buffer): Promise<string> {
     await writeFile(outPath, zip);
     return outPath;
   } catch {
-    // Not in Claude code exec — write to cwd
     const outPath = "kon.zip";
     await writeFile(outPath, zip);
     return outPath;
@@ -383,7 +181,6 @@ function createZip(entries: ZipEntry[]): Buffer {
     const name = Buffer.from(entry.path, "utf8");
     const checksum = crc32(entry.data);
 
-    // Local file header
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
@@ -399,7 +196,6 @@ function createZip(entries: ZipEntry[]): Buffer {
 
     parts.push(local, name, entry.data);
 
-    // Central directory entry
     const central = Buffer.alloc(46);
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(20, 4);
@@ -425,7 +221,6 @@ function createZip(entries: ZipEntry[]): Buffer {
 
   const centralDir = Buffer.concat(centralParts);
 
-  // End of central directory
   const eocd = Buffer.alloc(22);
   eocd.writeUInt32LE(0x06054b50, 0);
   eocd.writeUInt16LE(0, 4);

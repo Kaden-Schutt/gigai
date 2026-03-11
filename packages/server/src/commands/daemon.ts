@@ -3,6 +3,7 @@ import { resolve, join } from "node:path";
 import { homedir, platform } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { getDefaultConfigPath } from "../config.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -54,9 +55,9 @@ ${programArgs}
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>${join(homedir(), ".kon", "server.log")}</string>
+  <string>${join(homedir(), ".kond", "server.log")}</string>
   <key>StandardErrorPath</key>
-  <string>${join(homedir(), ".kon", "server.log")}</string>
+  <string>${join(homedir(), ".kond", "server.log")}</string>
   <key>WorkingDirectory</key>
   <string>${homedir()}</string>
 </dict>
@@ -83,7 +84,7 @@ WantedBy=default.target
 }
 
 export async function installDaemon(configPath?: string): Promise<void> {
-  const config = resolve(configPath ?? "kon.config.json");
+  const config = resolve(configPath ?? getDefaultConfigPath());
   const os = platform();
 
   if (os === "darwin") {

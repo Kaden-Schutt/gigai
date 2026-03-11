@@ -1,13 +1,13 @@
 import { parseArgs } from "node:util";
 import { resolve } from "node:path";
 import { createServer } from "./server.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, getDefaultConfigPath } from "./config.js";
 import { enableFunnel, disableFunnel } from "./https/tailscale.js";
 import { runTunnel } from "./https/cloudflare.js";
 import type { ChildProcess } from "node:child_process";
 
 export { createServer, type ServerOptions } from "./server.js";
-export { loadConfig } from "./config.js";
+export { loadConfig, getKondDir, getDefaultConfigPath } from "./config.js";
 export { runInit } from "./commands/init.js";
 export {
   wrapCli,
@@ -60,7 +60,7 @@ export async function startServer() {
 
   const configFile = values.config as string | undefined;
   const config = await loadConfig(configFile);
-  const configPath = resolve(configFile ?? "kon.config.json");
+  const configPath = resolve(configFile ?? getDefaultConfigPath());
   const server = await createServer({ config, configPath, dev: values.dev as boolean });
 
   const port = config.server.port;

@@ -16,18 +16,54 @@
   "tools": [
     {
       "type": "builtin",
-      "name": "fs",
-      "builtin": "filesystem",
-      "description": "Read, list, and search files",
+      "name": "read",
+      "builtin": "read",
+      "description": "Read file contents",
       "config": {
         "allowedPaths": ["/home/user/projects"]
       }
     },
     {
       "type": "builtin",
-      "name": "shell",
-      "builtin": "shell",
-      "description": "Execute allowed shell commands",
+      "name": "write",
+      "builtin": "write",
+      "description": "Write content to files",
+      "config": {
+        "allowedPaths": ["/home/user/projects"]
+      }
+    },
+    {
+      "type": "builtin",
+      "name": "edit",
+      "builtin": "edit",
+      "description": "Edit files by replacing text",
+      "config": {
+        "allowedPaths": ["/home/user/projects"]
+      }
+    },
+    {
+      "type": "builtin",
+      "name": "glob",
+      "builtin": "glob",
+      "description": "Find files matching glob patterns",
+      "config": {
+        "allowedPaths": ["/home/user/projects"]
+      }
+    },
+    {
+      "type": "builtin",
+      "name": "grep",
+      "builtin": "grep",
+      "description": "Search file contents",
+      "config": {
+        "allowedPaths": ["/home/user/projects"]
+      }
+    },
+    {
+      "type": "builtin",
+      "name": "bash",
+      "builtin": "bash",
+      "description": "Execute bash commands",
       "config": {
         "allowlist": ["ls", "cat", "head", "tail", "grep", "find", "wc", "git", "npm", "node"],
         "allowSudo": false

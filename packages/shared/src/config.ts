@@ -55,7 +55,7 @@ export const ScriptToolConfigSchema = z.object({
 export const BuiltinToolConfigSchema = z.object({
   type: z.literal("builtin"),
   name: z.string(),
-  builtin: z.enum(["filesystem", "shell", "read", "write", "edit", "glob", "grep", "bash"]),
+  builtin: z.enum(["read", "write", "edit", "glob", "grep", "bash"]),
   description: z.string(),
   config: z.record(z.unknown()).optional(),
 });

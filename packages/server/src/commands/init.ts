@@ -1,10 +1,11 @@
 import { input, select, checkbox, confirm } from "@inquirer/prompts";
-import { readFile, writeFile, readdir, access } from "node:fs/promises";
+import { readFile, writeFile, readdir, access, mkdir } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { spawn } from "node:child_process";
 import { homedir, platform } from "node:os";
 import { generateEncryptionKey } from "@gigai/shared";
 import type { KondConfig, ToolConfig } from "@gigai/shared";
+import { getKondDir } from "../config.js";
 import {
   checkAllPrerequisites,
   checkRunningTailscaleApp,
@@ -424,16 +425,25 @@ export async function runInit(): Promise<void> {
   const selectedBuiltins = await checkbox({
     message: "Built-in tools to enable:",
     choices: [
-      { name: "Filesystem (read/list/search files)", value: "filesystem", checked: true },
-      { name: "Shell (execute allowed commands)", value: "shell", checked: true },
+      { name: "File tools (read, write, edit, glob, grep)", value: "files", checked: true },
+      { name: "Bash (execute commands)", value: "bash", checked: true },
     ],
   });
 
   const tools: ToolConfig[] = [];
 
-  if (selectedBuiltins.includes("filesystem")) {
+  if (selectedBuiltins.includes("files")) {
+    const fileBuiltins: Array<{ builtin: "read" | "write" | "edit" | "glob" | "grep"; description: string }> = [
+      { builtin: "read", description: "Read file contents" },
+      { builtin: "write", description: "Write content to files" },
+      { builtin: "edit", description: "Edit files by replacing text" },
+      { builtin: "glob", description: "Find files matching glob patterns" },
+      { builtin: "grep", description: "Search file contents" },
+    ];
+
+    let fileConfig: Record<string, unknown> = {};
     const restrictPaths = await confirm({
-      message: "Restrict filesystem to specific paths?",
+      message: "Restrict file tools to specific paths?",
       default: false,
     });
     if (restrictPaths) {
@@ -441,51 +451,46 @@ export async function runInit(): Promise<void> {
         message: "Allowed paths (comma-separated):",
         default: process.env.HOME ?? "~",
       });
-      const allowedPaths = pathsStr.split(",").map((p) => p.trim());
+      fileConfig = { allowedPaths: pathsStr.split(",").map((p) => p.trim()) };
+    }
+
+    for (const { builtin, description } of fileBuiltins) {
       tools.push({
         type: "builtin",
-        name: "fs",
-        builtin: "filesystem",
-        description: "Read, list, and search files",
-        config: { allowedPaths },
-      });
-    } else {
-      tools.push({
-        type: "builtin",
-        name: "fs",
-        builtin: "filesystem",
-        description: "Read, list, and search files",
-        config: {},
+        name: builtin,
+        builtin,
+        description,
+        config: fileConfig,
       });
     }
   }
 
-  if (selectedBuiltins.includes("shell")) {
+  if (selectedBuiltins.includes("bash")) {
     const restrictCommands = await confirm({
-      message: "Restrict shell to a command allowlist?",
+      message: "Restrict bash to a command allowlist?",
       default: false,
     });
-    const shellConfig: Record<string, unknown> = {};
+    const bashConfig: Record<string, unknown> = {};
     if (restrictCommands) {
       const allowlistStr = await input({
         message: "Allowed commands (comma-separated):",
         default: "ls,cat,head,tail,grep,find,wc,echo,date,whoami,pwd,git,npm,node",
       });
-      shellConfig.allowlist = allowlistStr.split(",").map((c) => c.trim());
+      bashConfig.allowlist = allowlistStr.split(",").map((c) => c.trim());
     }
     const blockSudo = await confirm({
       message: "Block sudo?",
       default: false,
     });
     if (blockSudo) {
-      shellConfig.allowSudo = false;
+      bashConfig.allowSudo = false;
     }
     tools.push({
       type: "builtin",
-      name: "shell",
-      builtin: "shell",
-      description: "Execute shell commands",
-      config: shellConfig,
+      name: "bash",
+      builtin: "bash",
+      description: "Execute bash commands",
+      config: bashConfig,
     });
   }
 
@@ -579,7 +584,9 @@ export async function runInit(): Promise<void> {
   };
 
   // 8. Write config
-  const configPath = resolve("kon.config.json");
+  const kondDir = getKondDir();
+  await mkdir(kondDir, { recursive: true });
+  const configPath = join(kondDir, "config.json");
   await writeFile(configPath, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
   console.log(`\n  Config written to: ${configPath}`);
 

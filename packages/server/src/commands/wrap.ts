@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { KondConfig, ToolConfig } from "@gigai/shared";
 import { KondConfigSchema } from "@gigai/shared";
+import { getDefaultConfigPath } from "../config.js";
 
 function splitCommand(input: string): { command: string; args: string[] } {
   const tokens: string[] = [];
@@ -33,7 +34,7 @@ function splitCommand(input: string): { command: string; args: string[] } {
 }
 
 async function loadConfigFile(path?: string): Promise<{ config: KondConfig; path: string }> {
-  const configPath = resolve(path ?? "kon.config.json");
+  const configPath = resolve(path ?? getDefaultConfigPath());
   const raw = await readFile(configPath, "utf8");
   const config = KondConfigSchema.parse(JSON.parse(raw));
   return { config, path: configPath };
